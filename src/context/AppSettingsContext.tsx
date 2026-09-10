@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import logoImg from '../assets/logo.png'
+import bannerImg from '../assets/founder_banner.jpg'
 
 export interface AppSettings {
   appName: string
@@ -23,11 +25,11 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   appName: 'LBM Mirror',
   appTagline: 'Screen Mirroring',
-  appLogo: '/logo.png',
+  appLogo: logoImg,
   founderName: 'Laxman Choudhary',
   founderRole: 'Founder & CEO — LBM Mirror Private Limited',
   founderQuote: 'Ideas To A More Connected World',
-  founderBanner: '/founder_banner.jpg',
+  founderBanner: bannerImg,
   email: 'contact@laxmanchoudhary.com',
   phone: '+91 98765 43210',
   whatsapp: '+91 98765 43210',

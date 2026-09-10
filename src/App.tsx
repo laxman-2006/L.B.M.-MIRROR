@@ -9,6 +9,8 @@ import { FounderModal } from './components/FounderModal'
 import { AdminPanel } from './components/AdminPanel'
 import { CastScreenStage } from './components/CastScreenStage'
 import { MobileSenderView } from './components/MobileSenderView'
+import { AppInfoModal } from './components/AppInfoModal'
+import { WindowsRemoteStage } from './components/WindowsRemoteStage'
 import { useAppSettings } from './context/AppSettingsContext'
 import { LaptopPhoneIllustration, SleepingDeviceIllustration } from './components/IllustrationSVGs'
 import { isMobileBrowser, getJoinUrl } from './utils/env'
@@ -75,6 +77,7 @@ export default function App() {
   const [showFaqsModal, setShowFaqsModal] = useState<boolean>(false)
   const [showViewerModal, setShowViewerModal] = useState<boolean>(false)
   const [showFounderModal, setShowFounderModal] = useState<boolean>(false)
+  const [showAppInfoModal, setShowAppInfoModal] = useState<boolean>(false)
 
   // ─── App Settings & Admin State ───────────────────────────────────────────
   const { settings } = useAppSettings()
@@ -169,7 +172,7 @@ export default function App() {
   const [activeConnectedDevice, setActiveConnectedDevice] = useState<{
     name: string
     platform: 'iOS' | 'Android' | 'Windows'
-    type: 'AirPlay' | 'USB ADB' | 'Wi-Fi'
+    type: 'AirPlay' | 'USB ADB' | 'Wi-Fi' | 'UltraViewer' | 'UltraViewer Remote Control'
     ip?: string
     resolution: string
     fps: string
@@ -619,11 +622,11 @@ export default function App() {
       ════════════════════════════════════════════════════════════════════ */}
       <aside className="airplayer-sidebar">
         {/* Brand Header: Dynamic App Logo + App Name */}
-        {/* Brand / App Logo Block (Click opens Founder & CEO Modal) */}
+        {/* Brand / App Logo Block (Click opens App Info & Secret Admin Modal) */}
         <div
           className="sidebar-brand-block clickable-brand-trigger"
-          onClick={() => setShowFounderModal(true)}
-          title={`Click to view Founder & CEO Profile: ${settings.founderName || 'Laxman Choudhary'}`}
+          onClick={() => setShowAppInfoModal(true)}
+          title="App Information & Features (Click to view)"
           role="button"
           tabIndex={0}
         >
@@ -674,23 +677,6 @@ export default function App() {
               </svg>
             </span>
             <span className="nav-btn-label">Cast Screen</span>
-          </button>
-
-          <button
-            type="button"
-            className={`nav-btn ${activeNav === 'management' ? 'active' : ''}`}
-            onClick={() => handleNavClick('management')}
-            title="एडमिन पैनल — ऐप नाम, लोगो, व्हाट्सएप, इंस्टाग्राम और यूज़र्स प्रबंधित करें"
-          >
-            <span className="nav-btn-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="4" y="4" width="16" height="6" rx="2"/>
-                <rect x="4" y="14" width="16" height="6" rx="2"/>
-                <line x1="8" y1="7" x2="8.01" y2="7"/>
-                <line x1="8" y1="17" x2="8.01" y2="17"/>
-              </svg>
-            </span>
-            <span className="nav-btn-label">Admin Panel ⚙️</span>
           </button>
 
           <div className="nav-menu-divider" />
@@ -813,24 +799,13 @@ export default function App() {
               <span>{isElectron ? '🖥️ Desktop EXE' : '🌐 Web App'}</span>
             </div>
 
-            {/* Quick Admin Panel Trigger */}
-            <button
-              type="button"
-              className="header-admin-quick-btn"
-              onClick={handleOpenAdminPanel}
-              title="एडमिन पैनल खोलें (Admin Control Panel)"
-            >
-              <span className="admin-lock-icon">🛡️</span>
-              <span className="admin-btn-text">Admin Panel</span>
-            </button>
-
             {currentUser ? (
               <div className="header-user-widget">
-                <div className="user-avatar-circle">
+                <div className="user-avatar-circle glow-avatar">
                   {currentUser.username.charAt(0).toUpperCase()}
                 </div>
                 <div className="user-text-info">
-                  <span className="user-id-prefix">Your ID:</span>
+                  <span className="user-id-prefix">Account ID</span>
                   <strong className="user-id-name" title={currentUser.email}>{currentUser.username}</strong>
                 </div>
                 <button
@@ -845,7 +820,7 @@ export default function App() {
             ) : (
               <button
                 type="button"
-                className="header-login-btn"
+                className="header-login-btn glow-login-btn"
                 onClick={() => {
                   setAuthMode('login')
                   setAuthGateMessage('')
@@ -858,7 +833,7 @@ export default function App() {
                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                   </svg>
                 </div>
-                <span className="login-label">Log in</span>
+                <span className="login-label">Sign In</span>
               </button>
             )}
 
@@ -1394,36 +1369,25 @@ export default function App() {
             </>
           )}
 
-          {/* ═══════════════ WINDOWS VIEW ═══════════════ */}
+          {/* ═══════════════ WINDOWS VIEW (UltraViewer Mode) ═══════════════ */}
           {platform === 'windows' && (
-            <section className="airplayer-card primary-card">
-              <div className="card-top-header">
-                <div className="card-header-left">
-                  <span className="card-indicator-icon blue-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="2" y="3" width="20" height="14" rx="2"/>
-                      <line x1="8" y1="21" x2="16" y2="21"/>
-                    </svg>
-                  </span>
-                  <h3 className="card-title-text">Windows PC Mirroring</h3>
-                  <span className="badge-recommended">Recommended</span>
-                </div>
-              </div>
-              <div className="card-inner-content">
-                <p className="highlight-subtitle-blue">
-                  Stream PC screen or receive remote Windows screen over local Wi-Fi.
-                </p>
-                <div className="card-action-bar">
-                  <button
-                    type="button"
-                    className="airplayer-blue-btn"
-                    onClick={() => handleNavClick('cast')}
-                  >
-                    🖥️ Start Windows Screen Cast
-                  </button>
-                </div>
-              </div>
-            </section>
+            <WindowsRemoteStage
+              currentPin={currentPin}
+              currentSessionId={currentSessionId}
+              onRequireAuth={requireAuthForCasting}
+              onRemoteStreamReceived={(stream, partnerInfo) => {
+                setRemoteMediaStream(stream)
+                setActiveConnectedDevice({
+                  name: partnerInfo?.name || 'Remote Windows PC',
+                  platform: 'Windows',
+                  type: 'UltraViewer Remote Control',
+                  fps: '60 FPS',
+                  resolution: '1920x1080',
+                })
+                setShowViewerModal(true)
+              }}
+              showToast={showToast}
+            />
           )}
         </div>
       )}
@@ -1544,6 +1508,18 @@ export default function App() {
           onClose={() => setShowFounderModal(false)}
         />
       )}
+
+      {/* 5. App Info & Secret Admin Modal */}
+      <AppInfoModal
+        isOpen={showAppInfoModal}
+        onClose={() => setShowAppInfoModal(false)}
+        onOpenAdmin={() => {
+          setIsAdminUnlocked(true)
+          sessionStorage.setItem('lbm_admin_unlocked', 'true')
+          setIsAdminView(true)
+          setActiveNav('management')
+        }}
+      />
 
       {/* 4. Live Mirror Viewer */}
       {showViewerModal && (
