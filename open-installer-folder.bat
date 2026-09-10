@@ -1,0 +1,3 @@
+@echo off
+title Opening LBM Mirror Setup Installer Location...
+explorer.exe /select,"%~dp0release\LBM Mirror Setup 1.0.0.exe"
