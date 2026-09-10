@@ -100,29 +100,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       let data: any
       if (window.electronAPI?.auth) {
         data = await window.electronAPI.auth.signup(payload)
-      } else {
+      } else if (
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ) {
         const res = await fetch(`${apiBaseUrl}/api/auth/signup`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
         data = await res.json()
+      } else {
+        // Instant client-side persistence for Vercel / GitHub Pages / Web App
+        data = webSignup(payload)
       }
 
       if (!data.success) {
         setError(data.error || 'Failed to create account.')
       } else {
         setSuccessMsg('Account created successfully! Logging you in…')
-        setTimeout(() => { onAuthSuccess(data.user, data.token) }, 400)
+        setTimeout(() => { onAuthSuccess(data.user, data.token) }, 300)
       }
     } catch {
-      // Fallback for standalone Web App on GitHub Pages or static host
       const fallback = webSignup(payload)
       if (fallback.success && fallback.user && fallback.token) {
         setSuccessMsg('Account created! (Web Mode Active)')
-        setTimeout(() => { onAuthSuccess(fallback.user, fallback.token!) }, 400)
+        setTimeout(() => { onAuthSuccess(fallback.user, fallback.token!) }, 300)
       } else {
-        setError(fallback.error || 'Network connection error. Please ensure the LBM Mirror server is running.')
+        setError(fallback.error || 'Registration failed. Please check details.')
       }
     } finally {
       setLoading(false)
@@ -151,27 +156,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       let data: any
       if (window.electronAPI?.auth) {
         data = await window.electronAPI.auth.login(payload)
-      } else {
+      } else if (
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ) {
         const res = await fetch(`${apiBaseUrl}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
         data = await res.json()
+      } else {
+        // Instant client-side authentication for Vercel / GitHub Pages / Web App
+        data = webLogin(payload)
       }
 
       if (!data.success) {
         setError(data.error || 'Invalid credentials. Check your Email or Password.')
       } else {
         setSuccessMsg('Login successful! Welcome to LBM Mirror.')
-        setTimeout(() => { onAuthSuccess(data.user, data.token) }, 400)
+        setTimeout(() => { onAuthSuccess(data.user, data.token) }, 300)
       }
     } catch {
-      // Fallback for standalone Web App on GitHub Pages or static host
       const fallback = webLogin(payload)
       if (fallback.success && fallback.user && fallback.token) {
         setSuccessMsg('Login successful! (Web Mode Active)')
-        setTimeout(() => { onAuthSuccess(fallback.user, fallback.token!) }, 400)
+        setTimeout(() => { onAuthSuccess(fallback.user, fallback.token!) }, 300)
       } else {
         setError(fallback.error || 'Invalid credentials. Check your Email or Password.')
       }

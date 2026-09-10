@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import QRCode from 'qrcode'
 import { defaultWebRtcService } from '../services/webrtcService'
+import { defaultPeerService } from '../services/peerService'
 import { getJoinUrl } from '../utils/env'
 import type { Socket } from 'socket.io-client'
 
@@ -123,6 +124,10 @@ export const CastScreenStage: React.FC<CastScreenStageProps> = ({
         setIsCasting(true)
         showToast(`🚀 Screen casting started at ${targetFps} FPS!`)
 
+        // Broadcast to serverless WebRTC peers using PeerService
+        defaultPeerService.initHost(currentPin, stream).catch(console.error)
+        defaultPeerService.broadcastToTabs('tab:stream_ready', { pin: currentPin })
+
         // If socket is connected, broadcast session ready
         if (socket && currentSessionId) {
           socket.emit('session:status', { sessionId: currentSessionId, status: 'MIRRORING' })
@@ -138,6 +143,7 @@ export const CastScreenStage: React.FC<CastScreenStageProps> = ({
 
   const handleStopCasting = () => {
     defaultWebRtcService.stopScreenCapture()
+    defaultPeerService.destroyPeer()
     setLocalStream(null)
     setIsCasting(false)
     setViewerCount(0)

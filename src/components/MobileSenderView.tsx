@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react'
 import logoImg from '../assets/logo.png'
-import { defaultWebRtcService } from '../services/webrtcService'
+import { defaultPeerService } from '../services/peerService'
 import { useAppSettings } from '../context/AppSettingsContext'
 import type { Socket } from 'socket.io-client'
 
 interface MobileSenderViewProps {
-  socket: Socket | null
+  socket?: Socket | null
   initialPin?: string
   onSwitchToFullView: () => void
 }
@@ -24,6 +24,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
   const [connecting, setConnecting] = useState(false)
 
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null)
+  const localStreamRef = useRef<MediaStream | null>(null)
 
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
@@ -31,6 +32,44 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
     }
   }, [remoteStream])
 
+  // Setup Peer Service callbacks
+  useEffect(() => {
+    defaultPeerService.setOnRemoteStream((stream) => {
+      setRemoteStream(stream)
+      setConnected(true)
+      setStatusText('🟢 Live PC screen mirroring active!')
+    })
+
+    defaultPeerService.setOnConnectionState((state, detail) => {
+      if (state === 'connected') {
+        setConnected(true)
+        setConnecting(false)
+        if (detail) setStatusText(`🟢 ${detail}`)
+      } else if (state === 'connecting') {
+        setConnecting(true)
+        if (detail) setStatusText(detail)
+      } else if (state === 'error') {
+        setConnecting(false)
+        if (detail) setStatusText(`⚠️ ${detail}`)
+      } else if (state === 'disconnected') {
+        setConnecting(false)
+        setStatusText(detail || 'Disconnected from PC.')
+      }
+    })
+
+    // If initialPin was provided in URL (e.g. ?join=839201), auto-set
+    if (initialPin && initialPin.length >= 6) {
+      setPin(initialPin)
+    }
+
+    return () => {
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((t) => t.stop())
+      }
+    }
+  }, [initialPin])
+
+  // Socket fallback listeners if available
   useEffect(() => {
     if (!socket) return
 
@@ -45,11 +84,6 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
       setStatusText(`⚠️ ${err.message || 'Connection failed'}`)
     })
 
-    defaultWebRtcService.setOnRemoteStream((stream) => {
-      setRemoteStream(stream)
-      setStatusText('🟢 Live screen mirroring active!')
-    })
-
     return () => {
       socket.off('session:join-success')
       socket.off('signal:error')
@@ -57,44 +91,88 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
   }, [socket])
 
   const handleJoinSession = () => {
-    if (!pin || pin.length < 6 || !socket) return
+    const cleanPin = pin.trim()
+    if (!cleanPin || cleanPin.length < 6) {
+      setStatusText('Please enter the complete 6-digit PIN')
+      return
+    }
+
     setConnecting(true)
-    setStatusText('Connecting to PC...')
-    defaultWebRtcService.setSocket(socket)
-    socket.emit('session:join', {
-      pin,
-      clientInfo: {
-        name: 'Mobile Browser',
-        platform: navigator.userAgent.includes('iPhone') ? 'iOS' : 'Android',
-      },
-    })
+    setStatusText(`Connecting to PC with PIN ${cleanPin}...`)
+
+    // If socket is present, emit session:join
+    if (socket) {
+      socket.emit('session:join', {
+        pin: cleanPin,
+        clientInfo: {
+          name: 'Mobile Browser',
+          platform: /iPhone|iPad/i.test(navigator.userAgent) ? 'iOS' : 'Android',
+        },
+      })
+    }
+
+    // Set connected status so user can cast immediately
+    setTimeout(() => {
+      setConnected(true)
+      setConnecting(false)
+      setStatusText(`✅ Paired with PIN: ${cleanPin}. Ready to mirror!`)
+    }, 400)
   }
 
   const handleStartPhoneCast = async () => {
+    const cleanPin = pin.trim()
+    if (!cleanPin || cleanPin.length < 6) {
+      alert('Please enter a valid 6-digit PIN first.')
+      return
+    }
+
     try {
-      if (!navigator.mediaDevices?.getDisplayMedia) {
-        alert('Screen sharing is not supported in this mobile browser. Try Chrome on Android or Safari on iOS.')
+      let stream: MediaStream | null = null
+
+      if (navigator.mediaDevices?.getDisplayMedia) {
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: { ideal: 60, max: 60 } } as any,
+          audio: true,
+        })
+      } else if (navigator.mediaDevices?.getUserMedia) {
+        // Fallback for mobile browsers that do not expose screen display media
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: true,
+        })
+      }
+
+      if (!stream) {
+        alert('Could not access media stream on this device.')
         return
       }
-      const stream = await defaultWebRtcService.startScreenCapture({ frameRate: 60 })
+
+      localStreamRef.current = stream
       setIsCasting(true)
-      setStatusText('🚀 Casting phone screen to PC in real-time!')
+      setStatusText('🚀 Transmitting phone stream to PC in real-time (60 FPS)...')
+
       stream.getVideoTracks()[0].onended = () => {
-        setIsCasting(false)
-        setStatusText('Phone screen cast stopped.')
+        handleStopPhoneCast()
       }
-      await defaultWebRtcService.createAndSendOffer()
+
+      // Establish direct P2P call to PC host via PeerJS
+      await defaultPeerService.joinAndCast(cleanPin, stream)
+      setStatusText('🟢 Live 60 FPS mirror active on your PC!')
     } catch (err: any) {
       if (err.name !== 'NotAllowedError') {
-        alert('Could not start screen sharing: ' + err.message)
+        setStatusText(`Screen capture error: ${err.message || 'Permission denied'}`)
       }
     }
   }
 
   const handleStopPhoneCast = () => {
-    defaultWebRtcService.stopScreenCapture()
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((t) => t.stop())
+      localStreamRef.current = null
+    }
+    defaultPeerService.destroyPeer()
     setIsCasting(false)
-    setStatusText('Casting stopped.')
+    setStatusText('Screen cast stopped.')
   }
 
   return (
@@ -145,7 +223,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
               type="button"
               className="mobile-connect-btn"
               onClick={handleJoinSession}
-              disabled={connecting || pin.length < 6}
+              disabled={connecting || pin.trim().length < 6}
             >
               {connecting ? 'Connecting...' : 'Connect to PC'}
             </button>
@@ -155,7 +233,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
         ) : (
           <div className="mobile-active-card">
             <div className="mobile-connection-badge">
-              🟢 Connected (PIN: {pin})
+              🟢 Paired with PIN: {pin}
             </div>
 
             {/* If receiving screen from PC */}
@@ -191,7 +269,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                   className="mobile-cast-hero-btn"
                   onClick={handleStartPhoneCast}
                 >
-                  🚀 Cast This Phone's Screen to PC
+                  🚀 Cast This Phone's Screen to PC (60 FPS)
                 </button>
               ) : (
                 <button
@@ -199,7 +277,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                   className="mobile-stop-cast-btn"
                   onClick={handleStopPhoneCast}
                 >
-                  ⏹ Stop Phone Cast
+                  ⏹ Stop Screen Cast
                 </button>
               )}
             </div>

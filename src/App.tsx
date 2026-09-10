@@ -13,6 +13,7 @@ import { useAppSettings } from './context/AppSettingsContext'
 import { LaptopPhoneIllustration, SleepingDeviceIllustration } from './components/IllustrationSVGs'
 import { isMobileBrowser, getJoinUrl } from './utils/env'
 import { defaultWebRtcService } from './services/webrtcService'
+import { defaultPeerService } from './services/peerService'
 import { defaultWebUsbService, isWebUsbSupported, type WebUsbDevice } from './services/webUsbService'
 import { webGetMe } from './services/webAuthFallback'
 import QRCode from 'qrcode'
@@ -26,11 +27,14 @@ import type {
 } from './types'
 import './App.css'
 
+const shouldConnectSocket =
+  Boolean(import.meta.env.VITE_SIGNALING_SERVER) ||
+  (typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+
 const signalUrl =
   import.meta.env.VITE_SIGNALING_SERVER ||
-  (typeof window !== 'undefined' && window.location.protocol.startsWith('http') && window.location.hostname
-    ? `${window.location.protocol}//${window.location.hostname}:3001`
-    : 'http://localhost:3001')
+  (shouldConnectSocket ? 'http://localhost:3001' : '')
 
 const DEFAULT_STATS: StatsState = {
   fps: '60 FPS',
@@ -239,26 +243,36 @@ export default function App() {
       .catch(() => {})
   }, [currentPin, currentSessionId])
 
-  // ─── Listen for WebRTC Remote Video Stream ──────────────────────────────────
+  // ─── Listen for WebRTC Remote Video Stream (Socket & PeerJS) ───────────────
   useEffect(() => {
-    defaultWebRtcService.setOnRemoteStream((stream) => {
+    const handleRemoteStream = (stream: MediaStream) => {
       setRemoteMediaStream(stream)
       setStatus('MIRRORING')
       setActiveConnectedDevice({
-        name: 'Wireless Screen Client',
+        name: 'Wireless Screen Client (WebRTC)',
         platform: 'Android',
         type: 'Wi-Fi',
         resolution: '1080p',
         fps: '60 FPS',
       })
       setShowViewerModal(true)
-      showToast('🟢 Wireless screen stream connected!')
-    })
+      showToast('🟢 Wireless screen stream connected at 60 FPS!')
+    }
+
+    defaultWebRtcService.setOnRemoteStream(handleRemoteStream)
+    defaultPeerService.setOnRemoteStream(handleRemoteStream)
 
     defaultWebRtcService.setOnStats((st) => {
       setStats((prev) => ({ ...prev, ...st }))
     })
   }, [])
+
+  // ─── Initialize Host Peer for Cross-Device WebRTC Mirroring ────────────────
+  useEffect(() => {
+    if (currentPin) {
+      defaultPeerService.initHost(currentPin).catch(() => {})
+    }
+  }, [currentPin])
 
   // ─── Silent Auth Verification on Mount (Never opens login modal!) ──────────
   useEffect(() => {
@@ -407,6 +421,8 @@ export default function App() {
 
   // ─── Socket.io Connection ──────────────────────────────────────────────────
   useEffect(() => {
+    if (!shouldConnectSocket || !signalUrl) return
+
     const s = io(signalUrl, { transports: ['websocket', 'polling'] })
     socketRef.current = s
 
@@ -884,6 +900,38 @@ export default function App() {
           <div className="floating-error-banner">
             <span>⚠️ {errorText}</span>
             <button type="button" onClick={() => setErrorText(null)}>✕</button>
+          </div>
+        )}
+
+        {/* ── Web Mode Guidance Banner ── */}
+        {!isElectron && (
+          <div className="web-runtime-banner">
+            <div className="web-banner-left">
+              <span className="web-pill-icon">🌐</span>
+              <div className="web-banner-text">
+                <strong>LBM Mirror Web App (Online Cloud Mode)</strong>
+                <p>
+                  Browser Screen Casting (60 FPS) &amp; Wireless Mobile Mirroring are active.
+                  For hardware USB Cable (Scrcpy ADB) &amp; Apple AirPlay Bonjour, run the Windows Desktop EXE.
+                </p>
+              </div>
+            </div>
+            <div className="web-banner-actions">
+              <button
+                type="button"
+                className={`web-cast-quick-btn ${activeNav === 'cast' ? 'active' : ''}`}
+                onClick={() => setActiveNav('cast')}
+              >
+                🚀 Cast Screen (60 FPS)
+              </button>
+              <button
+                type="button"
+                className="web-download-quick-btn"
+                onClick={() => setShowDownloadModal(true)}
+              >
+                ⬇️ Download Desktop EXE
+              </button>
+            </div>
           </div>
         )}
 

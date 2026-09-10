@@ -3215,4 +3215,111 @@ body, html {
   color: #60a5fa;
 }
 
+/* ── Web Mode Guidance Banner ─────────────────────────────────────────────── */
+.web-runtime-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(16, 185, 129, 0.08));
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 12px;
+  padding: 12px 18px;
+  margin-bottom: 18px;
+  gap: 16px;
+  backdrop-filter: blur(8px);
+}
+
+.web-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.web-pill-icon {
+  font-size: 1.6rem;
+  background: rgba(37, 99, 235, 0.12);
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.web-banner-text strong {
+  font-size: 0.92rem;
+  color: #1e3a8a;
+  display: block;
+}
+
+.web-banner-text p {
+  font-size: 0.78rem;
+  color: #475569;
+  margin: 3px 0 0 0;
+  line-height: 1.4;
+}
+
+.web-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.web-cast-quick-btn {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.web-cast-quick-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.web-cast-quick-btn.active {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.web-download-quick-btn {
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  padding: 8px 13px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.web-download-quick-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+@media (max-width: 768px) {
+  .web-runtime-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .web-banner-actions {
+    width: 100%;
+    margin-top: 10px;
+  }
+  .web-cast-quick-btn,
+  .web-download-quick-btn {
+    flex: 1;
+    text-align: center;
+  }
+}
+
 
