@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LBM Mirror</string>
+    <string name="title_activity_main">LBM Mirror</string>
+    <string name="package_name">com.screenmeerar.app</string>
+    <string name="custom_url_scheme">com.screenmeerar.app</string>
+</resources>

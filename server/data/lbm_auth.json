@@ -1,0 +1,102 @@
+{
+  "users": [
+    {
+      "id": "6a1bc209-59f4-410f-948c-432da836e016",
+      "username": "lucky_bhambhu",
+      "email": "lc1229501@gmail.com",
+      "mobile": "",
+      "passwordHash": "$2b$10$hdjiYwaalHgENOoVZRPjRugcaBScCdXcXDaITgM9UTIlKLvha8TAO",
+      "createdAt": 1788868339459,
+      "updatedAt": 1788890764723
+    },
+    {
+      "id": "d1e7c4f0-8c29-4b17-a128-85472190ef92",
+      "username": "lucky",
+      "email": "luckyffgaming@gmail.com",
+      "mobile": "",
+      "passwordHash": "$2b$10$hdjiYwaalHgENOoVZRPjRugcaBScCdXcXDaITgM9UTIlKLvha8TAO",
+      "createdAt": 1788893900000,
+      "updatedAt": 1788893900000
+    },
+    {
+      "id": "73e5aa81-d07c-4a67-8bbc-a3f87d4537f2",
+      "username": "luckyj",
+      "email": "laxmanbhambhu@gmail.com",
+      "mobile": "",
+      "passwordHash": "$2b$10$B4V2PYXvj4p0Gw8NuO5ob.RmKHtVzMTPIaCWym2lPw9Gcb08Lu.VS",
+      "createdAt": 1788895281983
+    },
+    {
+      "id": "fc0bd29c-86fd-4f90-a597-fc0f556ff4c1",
+      "username": "luckybh",
+      "email": "laxmanchoudhary@gmail.com",
+      "mobile": "",
+      "passwordHash": "$2b$10$s6Im9EDk6xJ21pMhOocxKuMZYNjZpqXi0u.IWjGAIQ02Z9SCbjc1O",
+      "createdAt": 1788940048446
+    },
+    {
+      "id": "59622f95-cca6-47e6-a63a-60de5c8842b7",
+      "username": "lucky_user_9170",
+      "email": "lucky_9170@gmail.com",
+      "mobile": "",
+      "passwordHash": "$2b$10$kK/UHhBhrf7f7VHUKbRjzeqMc1oE6yybKYOlUnscy/SbYht/IanHK",
+      "createdAt": 1788942652772
+    },
+    {
+      "id": "a076a65c-023f-4d52-af7d-724b6df3ac0f",
+      "username": "testuser",
+      "email": "test@test.com",
+      "mobile": "",
+      "passwordHash": "$2b$10$YFT80j.bp6INkTaa2.8ipuVq0UzWB4hZPlLu9X0fyWFkwAld31htC",
+      "createdAt": 1788958501655
+    },
+    {
+      "id": "aed7d0c5-2064-4bc2-bb41-6c0c6626cfde",
+      "username": "luckyjj",
+      "email": "lucky@gmail.com",
+      "mobile": "",
+      "passwordHash": "$2b$10$aBw/5IE.d7RIKS.wMEjtDO.JIf86wCBLtrLfLdbiDWp5/FI3DKCly",
+      "createdAt": 1788964297073
+    },
+    {
+      "id": "04196713-04a1-4ca9-83d9-7678db685faa",
+      "username": "Lucky Tester",
+      "email": "testgoogleuser@gmail.com",
+      "mobile": "",
+      "passwordHash": "$2b$10$Zcpg/nHltIHEQBGOESRDOeAnM42Z.eCwSpAhg3sxyLYpK1WvuxFu.",
+      "createdAt": 1788967927816,
+      "updatedAt": 1788967927925
+    }
+  ],
+  "otps": [],
+  "sessions": [
+    {
+      "token": "957dbbd3ec89801b6dcddac06231b4b2726d0f68a4dbe0da6d64ef4f6a83233d",
+      "userId": "04196713-04a1-4ca9-83d9-7678db685faa",
+      "username": "Lucky Tester",
+      "createdAt": 1788967927820,
+      "expiresAt": 1791559927820
+    },
+    {
+      "token": "2ab8377f600cd05c5e8b54d413ae65a45d5dc2f9b7e57e7edcac1ccdd0c624bb",
+      "userId": "04196713-04a1-4ca9-83d9-7678db685faa",
+      "username": "Lucky Tester",
+      "createdAt": 1788967927927,
+      "expiresAt": 1791559927927
+    },
+    {
+      "token": "541a434aec0707e2ea38bed2786019bf540f8991227e49369ec04db3d71d21a8",
+      "userId": "04196713-04a1-4ca9-83d9-7678db685faa",
+      "username": "Lucky Tester",
+      "createdAt": 1788967928027,
+      "expiresAt": 1791559928027
+    },
+    {
+      "token": "4f99d78ee039714423fd42fb76db07c34a2e627e00e4c01cb4c59a22224e3f7e",
+      "userId": "aed7d0c5-2064-4bc2-bb41-6c0c6626cfde",
+      "username": "luckyjj",
+      "createdAt": 1788968918221,
+      "expiresAt": 1791560918221
+    }
+  ]
+}

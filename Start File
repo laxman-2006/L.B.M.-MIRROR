@@ -1,0 +1,14 @@
+# =======================================================
+# LBM Mirror - Quick Launch Commands
+# =======================================================
+
+# 1. Start Server & Desktop App in Development Mode:
+$env:Path = "C:\Program Files\nodejs;$env:Path"
+cd "D:\SCREEN MEERAR"
+& "C:\Program Files\nodejs\npm.cmd" run dev
+
+# 2. Or Run Built Windows Desktop App directly:
+# & "D:\SCREEN MEERAR\release\win-unpacked\LBM Mirror.exe"
+
+# 3. Or Install LBM Mirror onto Windows:
+# & "D:\SCREEN MEERAR\release\LBM Mirror Setup 1.0.0.exe"

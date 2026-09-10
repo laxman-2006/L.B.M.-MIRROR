@@ -1,0 +1,116 @@
+{
+  "name": "lbm-mirror",
+  "private": true,
+  "version": "1.0.0",
+  "description": "LBM Mirror - Professional Screen Mirroring application for Windows",
+  "author": "LBM Mirror",
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "concurrently -n SERVER,CLIENT,ELECTRON -c cyan,magenta,yellow \"node --watch server/index.js\" \"vite --host 0.0.0.0\" \"wait-on tcp:5173 && electron .\"",
+    "dev:app": "electron .",
+    "dev:web": "vite --host 0.0.0.0",
+    "dev:client": "vite --host 0.0.0.0",
+    "dev:server": "node --watch server/index.js",
+    "server": "node server/index.js",
+    "build": "tsc -b && vite build",
+    "build:web": "tsc -b && vite build",
+    "dist": "npm run build && electron-builder --win --x64",
+    "build:android": "npm run build && cap sync android",
+    "android:sync": "cap sync android",
+    "android:open": "cap open android",
+    "lint": "eslint .",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
+    "@devicefarmer/adbkit": "^3.3.9",
+    "@types/qrcode": "^1.5.6",
+    "bcryptjs": "^3.0.3",
+    "bonjour-service": "^1.4.4",
+    "dotenv": "^17.4.2",
+    "express": "^5.1.0",
+    "nodemailer": "^10.0.1",
+    "qrcode": "^1.5.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "uuid": "^11.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^24.13.3",
+    "@types/nodemailer": "^8.0.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "concurrently": "^9.1.2",
+    "cross-env": "^10.1.0",
+    "electron": "^44.2.0",
+    "electron-builder": "^26.15.3",
+    "eslint": "^10.9.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.4",
+    "globals": "^17.11.0",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.67.0",
+    "vite": "^8.2.2",
+    "wait-on": "^9.1.0"
+  },
+  "build": {
+    "appId": "com.lbm.mirror",
+    "productName": "LBM Mirror",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "server/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "server/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin"
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "executableName": "LBM Mirror",
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
+    }
+  }
+}
