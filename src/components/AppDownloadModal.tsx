@@ -5,21 +5,33 @@ import { useAppSettings } from '../context/AppSettingsContext'
 
 interface AppDownloadModalProps {
   localIp: string
+  currentPin?: string
   onClose: () => void
 }
 
-export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ localIp, onClose }) => {
+export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
+  localIp,
+  currentPin = '839201',
+  onClose,
+}) => {
   const { settings } = useAppSettings()
   const [copied, setCopied] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
+
+  const isWeb = typeof window !== 'undefined' && !Boolean(window.electronAPI?.isElectron)
   
-  const port = 3001
-  const activeIp = localIp && localIp !== '127.0.0.1' ? localIp : '192.168.137.116'
-  const downloadUrl = `http://${activeIp}:${port}/download`
-  const apkDownloadUrl = `http://${activeIp}:${port}/api/download/android`
+  // Clean, universal URLs that work both online on Vercel and locally
+  const origin = typeof window !== 'undefined' ? window.location.origin.replace(/\/$/, '') : 'https://l-b-m-mirror.vercel.app'
+  const downloadUrl = isWeb
+    ? `${origin}/?join=${currentPin}`
+    : `http://${localIp && localIp !== '127.0.0.1' ? localIp : 'localhost'}:3001/download`
+
+  const apkDownloadUrl = isWeb
+    ? `${origin}/downloads/LBMMirror.apk`
+    : `http://${localIp && localIp !== '127.0.0.1' ? localIp : 'localhost'}:3001/api/download/android`
 
   useEffect(() => {
-    // Generate 100% compliant ISO standard QR code readable by any phone camera
+    // Generate ISO standard QR code readable by any phone camera or Google Lens
     QRCode.toDataURL(downloadUrl, {
       width: 260,
       margin: 2,
@@ -67,8 +79,8 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ localIp, onC
               />
             </div>
             <div>
-              <h2 className="download-modal-title">Download {settings.appName} App</h2>
-              <p className="download-modal-subtitle">Scan QR code or open link on your Android / iPhone</p>
+              <h2 className="download-modal-title">Connect &amp; Download {settings.appName}</h2>
+              <p className="download-modal-subtitle">Scan QR code with Android / iPhone camera or download the APK</p>
             </div>
           </div>
         </div>
@@ -95,7 +107,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ localIp, onC
                 <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
                 <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
               </svg>
-              <span>Scan with mobile camera or Google Lens</span>
+              <span>Scan with phone camera to open instantly</span>
             </div>
           </div>
 
@@ -105,31 +117,31 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ localIp, onC
               <div className="step-item">
                 <div className="step-num">1</div>
                 <div className="step-content">
-                  <strong>Open Camera or Scanner on Phone</strong>
-                  <p>Point camera at the QR code to open the LBM Web App immediately.</p>
+                  <strong>Scan QR Code on Phone</strong>
+                  <p>Point camera at the QR code to open the LBM Web Cast screen in your phone browser.</p>
                 </div>
               </div>
 
               <div className="step-item">
                 <div className="step-num">2</div>
                 <div className="step-content">
-                  <strong>Or Enter Address in Mobile Chrome</strong>
-                  <p>Open browser on your phone connected to the same Wi-Fi.</p>
+                  <strong>Zero Install Screen Mirroring</strong>
+                  <p>No app install needed! Just tap <strong>"Cast Screen"</strong> in your phone browser.</p>
                 </div>
               </div>
 
               <div className="step-item">
                 <div className="step-num">3</div>
                 <div className="step-content">
-                  <strong>Connect &amp; Mirror Instantly</strong>
-                  <p>Fast 60 FPS wireless and USB screen casting to this PC!</p>
+                  <strong>Ultra-Fast 60 FPS Video</strong>
+                  <p>Direct low-latency WebRTC connection to this PC.</p>
                 </div>
               </div>
             </div>
 
             {/* Direct Link Box */}
             <div className="download-link-box">
-              <label htmlFor="app-url-input">Direct Mobile Connection Link:</label>
+              <label htmlFor="app-url-input">Direct Mobile Connection Link (PIN: {currentPin}):</label>
               <div className="url-copy-row">
                 <input
                   id="app-url-input"
@@ -153,18 +165,15 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({ localIp, onC
                 href={apkDownloadUrl}
                 download="LBMMirror.apk"
                 className="direct-apk-btn"
-                onClick={() => {
-                  if (window.electronAPI) {
-                    window.open(downloadUrl, '_blank')
-                  }
-                }}
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                   <polyline points="7 10 12 15 17 10"/>
                   <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
-                <span>Download APK for Android</span>
+                <span>Download LBMMirror.apk (Android)</span>
               </a>
             </div>
           </div>

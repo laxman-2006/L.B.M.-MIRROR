@@ -1527,6 +1527,7 @@ export default function App() {
       {showDownloadModal && (
         <AppDownloadModal
           localIp={currentHostIp}
+          currentPin={currentPin}
           onClose={() => setShowDownloadModal(false)}
         />
       )}
