@@ -1,9 +1,10 @@
-import { app, BrowserWindow, ipcMain, session, desktopCapturer } from 'electron'
+import { app, BrowserWindow, ipcMain, session, desktopCapturer, shell } from 'electron'
 import path from 'path'
 import { fileURLToPath, pathToFileURL } from 'url'
 import os from 'os'
 import { AdbBridge } from './bridge/adbBridge.js'
 import { AirPlayBridge } from './bridge/airplayBridge.js'
+import { defaultRemoteInputBridge } from './bridge/remoteInputBridge.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -67,16 +68,48 @@ async function startInternalServer() {
   }
 }
 
-function getLocalIp() {
+function getNetworkInterfacesList() {
   const interfaces = os.networkInterfaces()
+  const candidates = []
+
   for (const name of Object.keys(interfaces)) {
     for (const net of interfaces[name] || []) {
       if (net.family === 'IPv4' && !net.internal) {
-        return net.address
+        // Strictly ignore APIPA link-local (169.254.*.*) and loopback
+        if (!net.address.startsWith('169.254.') && !net.address.startsWith('127.')) {
+          const isWifi = /wi-fi|wifi|wlan|wireless/i.test(name)
+          const isEthernet = /ethernet|eth|lan/i.test(name) && !/vEthernet|virtual|hyper-v|wsl/i.test(name)
+          const isLan = net.address.startsWith('192.168.') || net.address.startsWith('10.') || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(net.address)
+
+          let priority = 1
+          if (isWifi && isLan) priority = 10
+          else if (isEthernet && isLan) priority = 8
+          else if (isLan) priority = 6
+          else if (isWifi) priority = 5
+          else if (isEthernet) priority = 4
+
+          candidates.push({
+            name,
+            ip: net.address,
+            priority,
+            isWifi,
+            isEthernet,
+          })
+        }
       }
     }
   }
-  return '127.0.0.1'
+
+  candidates.sort((a, b) => b.priority - a.priority)
+  return candidates
+}
+
+function getLocalIp() {
+  const list = getNetworkInterfacesList()
+  if (list.length > 0) {
+    return list[0].ip
+  }
+  return '192.168.137.218'
 }
 
 function createWindow() {
@@ -138,6 +171,15 @@ function createWindow() {
     }
   })
 
+  // Safely open all external links in the user's default browser (Chrome, Edge, WhatsApp, etc.)
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url && (url.startsWith('http:') || url.startsWith('https:') || url.startsWith('mailto:') || url.startsWith('tel:'))) {
+      shell.openExternal(url).catch(console.error)
+      return { action: 'deny' }
+    }
+    return { action: 'allow' }
+  })
+
   // Remove default menu for sleek look
   mainWindow.setMenuBarVisibility(false)
 
@@ -183,11 +225,29 @@ function setupIpcHandlers() {
 
   // System
   ipcMain.handle('system:get-network-info', () => {
+    const list = getNetworkInterfacesList()
+    const bestIp = getLocalIp()
     return {
-      ip: getLocalIp(),
+      ip: bestIp,
+      allIps: list,
       hostname: os.hostname(),
       platform: process.platform,
     }
+  })
+
+  // Remote Control (UltraViewer Input Bridge) Handlers
+  ipcMain.handle('remote-input:start', async () => {
+    return await defaultRemoteInputBridge.start()
+  })
+
+  ipcMain.handle('remote-input:stop', () => {
+    defaultRemoteInputBridge.stop()
+    return { success: true }
+  })
+
+  ipcMain.handle('remote-input:event', (_event, inputEvent) => {
+    defaultRemoteInputBridge.handleEvent(inputEvent)
+    return { success: true }
   })
 
   // ADB Handlers
@@ -209,6 +269,10 @@ function setupIpcHandlers() {
 
   ipcMain.handle('adb:restart-server', async () => {
     return await adbBridge.restartServer()
+  })
+
+  ipcMain.handle('adb:install-apk', async (_event, serial) => {
+    return await adbBridge.installApk(serial)
   })
 
   ipcMain.handle('adb:start-mirroring', async (_event, serial, options) => {
@@ -260,6 +324,20 @@ function setupIpcHandlers() {
   })
   ipcMain.handle('window:close', () => {
     mainWindow?.close()
+  })
+
+  // Open external links in default browser
+  ipcMain.handle('app:open-external', async (_event, url) => {
+    if (url && typeof url === 'string') {
+      try {
+        await shell.openExternal(url)
+        return { success: true }
+      } catch (err) {
+        console.error('[Main] Failed to open external URL:', url, err)
+        return { success: false, error: err.message }
+      }
+    }
+    return { success: false, error: 'Invalid URL' }
   })
 
   // Desktop Screen Sources for Mirroring

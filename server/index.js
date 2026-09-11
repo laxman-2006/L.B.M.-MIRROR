@@ -127,12 +127,73 @@ app.post('/api/support/query', (req, res) => {
   }
 })
 
+import os from 'os'
+
+function getNetworkInterfacesList() {
+  const interfaces = os.networkInterfaces()
+  const candidates = []
+
+  for (const name of Object.keys(interfaces)) {
+    for (const net of interfaces[name] || []) {
+      if (net.family === 'IPv4' && !net.internal) {
+        if (!net.address.startsWith('169.254.') && !net.address.startsWith('127.')) {
+          const isWifi = /wi-fi|wifi|wlan|wireless/i.test(name)
+          const isEthernet = /ethernet|eth|lan/i.test(name) && !/vEthernet|virtual|hyper-v|wsl/i.test(name)
+          const isLan = net.address.startsWith('192.168.') || net.address.startsWith('10.') || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(net.address)
+
+          let priority = 1
+          if (isWifi && isLan) priority = 10
+          else if (isEthernet && isLan) priority = 8
+          else if (isLan) priority = 6
+          else if (isWifi) priority = 5
+          else if (isEthernet) priority = 4
+
+          candidates.push({
+            name,
+            ip: net.address,
+            priority,
+            isWifi,
+            isEthernet,
+          })
+        }
+      }
+    }
+  }
+
+  candidates.sort((a, b) => b.priority - a.priority)
+  return candidates
+}
+
+function getLocalIp() {
+  const list = getNetworkInterfacesList()
+  if (list.length > 0) {
+    return list[0].ip
+  }
+  return '192.168.137.218'
+}
+
+app.get('/api/network-info', (_req, res) => {
+  const ip = getLocalIp()
+  const allIps = getNetworkInterfacesList()
+  res.json({
+    success: true,
+    ip,
+    allIps,
+    downloadUrl: `http://${ip}:3001/download`,
+    apkUrl: `http://${ip}:3001/api/download/android`,
+  })
+})
+
 // Direct APK download endpoint
 function getApkPath() {
   const possiblePaths = [
     path.join(__dirname, 'downloads/LBMMirror.apk'),
     path.join(__dirname, '../public/downloads/LBMMirror.apk'),
+    path.join(__dirname, '../dist/downloads/LBMMirror.apk'),
     path.join(__dirname, '../android/app/build/outputs/apk/debug/app-debug.apk'),
+    path.join(process.cwd(), 'server/downloads/LBMMirror.apk'),
+    path.join(process.cwd(), 'public/downloads/LBMMirror.apk'),
+    path.join(process.cwd(), 'android/app/build/outputs/apk/debug/app-debug.apk'),
   ]
   return possiblePaths.find((p) => fs.existsSync(p))
 }
@@ -141,43 +202,68 @@ app.get('/api/download/android', (_req, res) => {
   const apkPath = getApkPath()
   if (apkPath) {
     res.setHeader('Content-Type', 'application/vnd.android.package-archive')
+    res.setHeader('Content-Disposition', 'attachment; filename="LBMMirror.apk"')
     return res.download(apkPath, 'LBMMirror.apk')
   }
   res.status(404).send('APK file not found on server.')
 })
 
+function getWindowsInstallerPath() {
+  const possiblePaths = [
+    path.join(__dirname, '../release/LBM Mirror Setup 1.0.0.exe'),
+    path.join(process.cwd(), 'release/LBM Mirror Setup 1.0.0.exe'),
+  ]
+  return possiblePaths.find((p) => fs.existsSync(p))
+}
+
+app.get('/api/download/windows', (_req, res) => {
+  const exePath = getWindowsInstallerPath()
+  if (exePath) {
+    res.setHeader('Content-Type', 'application/vnd.microsoft.portable-executable')
+    res.setHeader('Content-Disposition', 'attachment; filename="LBM Mirror Setup 1.0.0.exe"')
+    return res.download(exePath, 'LBM Mirror Setup 1.0.0.exe')
+  }
+  res.status(404).send('Windows installer not found on server.')
+})
+
 // Mobile-friendly download landing page (auto-downloads when scanned)
-app.get('/download', (_req, res) => {
-  const apkPath = getApkPath()
-  const hasApk = !!apkPath
+app.get('/download', (req, res) => {
+  const joinPin = req.query.pin || ''
+  const directCastUrl = joinPin ? `/?join=${joinPin}&mode=sender` : '/?mode=sender'
+
   res.send(`<!DOCTYPE html>
 <html lang="hi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Download LBM Mirror App — Android</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    body { background: #0b132b; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
-    .card { background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; max-width: 440px; width: 100%; padding: 32px 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-    .logo { width: 90px; height: 90px; border-radius: 50%; box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4); margin: 0 auto 16px; display: block; border: 3px solid #3b82f6; }
-    h1 { font-size: 1.6rem; font-weight: 800; margin-bottom: 6px; color: #ffffff; }
+    body { background: #070d1e; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; text-align: center; }
+    .card { background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(255,255,255,0.14); border-radius: 24px; max-width: 440px; width: 100%; padding: 32px 20px; box-shadow: 0 24px 50px rgba(0,0,0,0.6); }
+    .logo { width: 84px; height: 84px; border-radius: 50%; box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4); margin: 0 auto 14px; display: block; border: 3px solid #3b82f6; background: #0f172a; }
+    h1 { font-size: 1.55rem; font-weight: 800; margin-bottom: 4px; color: #ffffff; }
     .founder-tag { font-size: 0.85rem; color: #94a3b8; margin-bottom: 20px; }
-    .founder-name { color: #60a5fa; font-weight: 600; }
-    .btn-download { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; font-size: 1.1rem; font-weight: 700; padding: 16px 20px; border-radius: 12px; text-decoration: none; box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4); margin-bottom: 16px; transition: transform 0.15s ease; }
+    .founder-name { color: #60a5fa; font-weight: 700; }
+    
+    .btn-download { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; font-size: 1.1rem; font-weight: 700; padding: 16px 20px; border-radius: 14px; text-decoration: none; box-shadow: 0 6px 22px rgba(37, 99, 235, 0.45); margin-bottom: 12px; transition: transform 0.15s ease; }
     .btn-download:active { transform: scale(0.98); }
-    .auto-notice { font-size: 0.8rem; color: #a5b4fc; margin-bottom: 24px; background: rgba(99, 102, 241, 0.15); padding: 10px; border-radius: 8px; }
-    .steps { text-align: left; background: rgba(15, 23, 42, 0.6); border-radius: 12px; padding: 16px; margin-top: 10px; }
-    .step { font-size: 0.82rem; color: #cbd5e1; margin-bottom: 10px; display: flex; gap: 10px; align-items: flex-start; }
+
+    .btn-cast-direct { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: rgba(37, 99, 235, 0.12); color: #60a5fa; border: 1.5px solid rgba(59, 130, 246, 0.4); font-size: 0.96rem; font-weight: 600; padding: 13px 18px; border-radius: 12px; text-decoration: none; margin-bottom: 18px; }
+    .btn-cast-direct:active { background: rgba(37, 99, 235, 0.25); }
+
+    .auto-notice { font-size: 0.82rem; color: #93c5fd; margin-bottom: 18px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); padding: 10px 14px; border-radius: 10px; }
+    .steps { text-align: left; background: rgba(15, 23, 42, 0.7); border-radius: 14px; padding: 16px; border: 1px solid rgba(255,255,255,0.06); }
+    .step { font-size: 0.83rem; color: #cbd5e1; margin-bottom: 11px; display: flex; gap: 10px; align-items: flex-start; line-height: 1.4; }
     .step:last-child { margin-bottom: 0; }
-    .num { background: #2563eb; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
-    .footer-link { margin-top: 20px; font-size: 0.82rem; color: #64748b; }
-    .footer-link a { color: #60a5fa; text-decoration: none; }
+    .num { background: #2563eb; color: #fff; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.74rem; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+    .footer-link { margin-top: 18px; font-size: 0.8rem; color: #64748b; }
+    .footer-link a { color: #60a5fa; text-decoration: none; font-weight: 600; }
   </style>
 </head>
 <body>
   <div class="card">
-    <img src="/logo.png" alt="LBM Mirror Logo" class="logo" />
+    <img src="/logo.png" alt="LBM Mirror Logo" class="logo" onerror="this.src='/downloads/LBMMirror.apk'" />
     <h1>LBM Mirror</h1>
     <p class="founder-tag">Founder &amp; CEO: <span class="founder-name">Laxman Choudhary</span></p>
 
@@ -186,12 +272,16 @@ app.get('/download', (_req, res) => {
     </div>
 
     <a href="/api/download/android" download="LBMMirror.apk" class="btn-download" id="dl-btn">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
         <polyline points="7 10 12 15 17 10"></polyline>
         <line x1="12" y1="15" x2="12" y2="3"></line>
       </svg>
       <span>Download LBMMirror.apk</span>
+    </a>
+
+    <a href="${directCastUrl}" class="btn-cast-direct">
+      <span>🚀 Cast Directly in Browser (Zero Install)</span>
     </a>
 
     <div class="steps">
@@ -201,11 +291,11 @@ app.get('/download', (_req, res) => {
       </div>
       <div class="step">
         <span class="num">2</span>
-        <span>यदि "Unknown Sources" का विकल्प आए तो Allow/Permit करें।</span>
+        <span>यदि "File might be harmful" या "Unknown Sources" का विकल्प आए तो <strong>Download anyway / Allow</strong> करें।</span>
       </div>
       <div class="step">
         <span class="num">3</span>
-        <span>ऐप खोलें और तुरंत पीसी पर स्क्रीन मिररिंग शुरू करें!</span>
+        <span>ऐप खोलें और तुरंत कंप्यूटर स्क्रीन पर 60 FPS पर मिररिंग शुरू करें!</span>
       </div>
     </div>
 
@@ -215,12 +305,21 @@ app.get('/download', (_req, res) => {
   </div>
 
   <script>
-    // Automatically trigger APK download 500ms after page opens
+    // Trigger direct APK download automatically
     setTimeout(function() {
-      window.location.href = '/api/download/android';
-      var notice = document.getElementById('notice');
-      if (notice) notice.innerHTML = '✅ Download started! Check your notification bar.';
-    }, 600);
+      try {
+        var link = document.createElement('a');
+        link.href = '/api/download/android';
+        link.setAttribute('download', 'LBMMirror.apk');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        var notice = document.getElementById('notice');
+        if (notice) notice.innerHTML = '✅ Download started! Notification bar check karein.';
+      } catch (err) {
+        // user can tap button directly
+      }
+    }, 500);
   </script>
 </body>
 </html>`)

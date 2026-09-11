@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     downloadAdb: () => ipcRenderer.invoke('adb:download-adb'),
     getDevices: () => ipcRenderer.invoke('adb:get-devices'),
     restartServer: () => ipcRenderer.invoke('adb:restart-server'),
+    installApk: (serial) => ipcRenderer.invoke('adb:install-apk', serial),
     startMirroring: (serial, options) => ipcRenderer.invoke('adb:start-mirroring', serial, options),
     stopMirroring: () => ipcRenderer.invoke('adb:stop-mirroring'),
 
@@ -42,6 +43,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('adb:download-progress', listener)
       return () => ipcRenderer.removeListener('adb:download-progress', listener)
     },
+  },
+
+  remoteInput: {
+    start: () => ipcRenderer.invoke('remote-input:start'),
+    stop: () => ipcRenderer.invoke('remote-input:stop'),
+    sendEvent: (event) => ipcRenderer.invoke('remote-input:event', event),
   },
 
   airplay: {
@@ -70,4 +77,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     maximize: () => ipcRenderer.invoke('window:maximize'),
     close: () => ipcRenderer.invoke('window:close'),
   },
+
+  openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
 })

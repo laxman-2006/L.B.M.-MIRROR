@@ -134,6 +134,38 @@ export class AdbBridge {
     })
   }
 
+  resolveApkPath() {
+    const possiblePaths = [
+      path.join(process.resourcesPath || '', 'app.asar.unpacked', 'server', 'downloads', 'LBMMirror.apk'),
+      path.join(__dirname, '../../server/downloads/LBMMirror.apk'),
+      path.join(__dirname, '../../public/downloads/LBMMirror.apk'),
+      path.join(process.cwd(), 'server', 'downloads', 'LBMMirror.apk'),
+      path.join(process.cwd(), 'public', 'downloads', 'LBMMirror.apk'),
+      path.join(process.cwd(), 'android', 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk'),
+    ]
+    for (const p of possiblePaths) {
+      if (p && fs.existsSync(p)) return p
+    }
+    return null
+  }
+
+  async installApk(serial) {
+    const apkPath = this.resolveApkPath()
+    if (!apkPath || !fs.existsSync(apkPath)) {
+      return { success: false, error: 'LBMMirror.apk not found on server/PC.' }
+    }
+    try {
+      console.log(`[AdbBridge] Installing APK to ${serial}: ${apkPath}`)
+      const output = await this.execAdb(['-s', serial, 'install', '-r', '-d', apkPath])
+      if (output.includes('Success')) {
+        return { success: true, message: 'App installed successfully on Android phone via USB!' }
+      }
+      return { success: false, error: output || 'Install failed' }
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  }
+
   async getConnectedDevices() {
     try {
       // Ensure ADB server is running
@@ -141,10 +173,12 @@ export class AdbBridge {
       const output = await this.execAdb(['devices', '-l'])
       const lines = output.split('\n').map((l) => l.trim()).filter((l) => l.length > 0)
       
-      // First line is "List of devices attached"
+      const startIndex = lines.findIndex((l) => l.toLowerCase().includes('list of devices attached'))
+      const deviceLines = startIndex >= 0 ? lines.slice(startIndex + 1) : lines
+
       const devices = []
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i]
+      for (const line of deviceLines) {
+        if (line.startsWith('*')) continue // Ignore daemon startup logs
         const parts = line.split(/\s+/)
         if (parts.length >= 2) {
           const serial = parts[0]
@@ -229,6 +263,16 @@ export class AdbBridge {
       this.stopMirroring()
     }
 
+    // Check if device is unauthorized
+    const devices = await this.getConnectedDevices()
+    const targetDev = devices.find((d) => d.serial === serial)
+    if (targetDev && targetDev.status === 'unauthorized') {
+      return {
+        success: false,
+        error: 'फ़ोन अनऑथराइज्ड है! कृपया अपने फ़ोन की स्क्रीन अनलॉक करें और "Allow USB Debugging" पॉपअप में "Always allow" टिक करके "Allow" दबाएं।',
+      }
+    }
+
     this.activeDevice = serial
     this.sessionStartTime = Date.now()
     this.frameCount = 0
@@ -288,6 +332,14 @@ export class AdbBridge {
         },
       })
 
+      let scrcpyStderr = ''
+      if (this.mirrorProcess.stderr) {
+        this.mirrorProcess.stderr.on('data', (d) => {
+          scrcpyStderr += d.toString()
+          console.error('[scrcpy stderr]:', d.toString())
+        })
+      }
+
       const bitrateStr = targetRes === '4k' ? '24.0 Mbps' : targetRes === '720p' ? '8.0 Mbps' : '16.0 Mbps'
       const resLabel = targetRes === '4k' ? '4K UHD (Native)' : targetRes === '720p' ? '720p (HD)' : '1080p (FHD)'
 
@@ -320,10 +372,20 @@ export class AdbBridge {
 
       this.mirrorProcess.on('exit', (code) => {
         clearInterval(statsInterval)
-        console.log('scrcpy exited with code:', code)
+        console.log('scrcpy exited with code:', code, scrcpyStderr)
         this.mirrorProcess = null
         this.activeDevice = null
-        this.onStatusChange({ status: 'DISCONNECTED', serial })
+        let exitError = null
+        if (code !== 0) {
+          if (scrcpyStderr.includes('unauthorized')) {
+            exitError = 'फ़ोन अनऑथराइज्ड है! कृपया स्क्रीन अनलॉक करके "Allow USB Debugging" दबाएं।'
+          } else if (scrcpyStderr.includes('device offline')) {
+            exitError = 'फ़ोन ऑफलाइन है। यूएसबी केबल निकाल कर दोबारा लगाएं।'
+          } else {
+            exitError = scrcpyStderr || `Scrcpy exited with code ${code}`
+          }
+        }
+        this.onStatusChange({ status: 'DISCONNECTED', serial, error: exitError })
       })
 
       return {

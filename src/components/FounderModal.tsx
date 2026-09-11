@@ -16,30 +16,70 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  // Configurable contact details from dynamic admin settings
-  const contactDetails = {
-    email: settings.email || 'contact@laxmanchoudhary.com',
-    instagram: settings.instagramUrl || 'https://instagram.com/laxman_choudhary',
-    instagramHandle: settings.instagramHandle || '@laxman_choudhary',
-    youtube: settings.youtubeUrl || 'https://youtube.com/@LBMMirror',
-    youtubeHandle: settings.youtubeHandle || 'LBM Mirror Official',
-    facebook: settings.facebookUrl || 'https://facebook.com/LBMMirror',
-    facebookHandle: settings.facebookHandle || 'LBM Mirror Official',
-    phone: settings.phone || '+91 98765 43210',
-    whatsapp: `https://wa.me/${(settings.whatsapp || settings.phone || '919876543210').replace(/[^0-9]/g, '')}`,
-  }
-
-  const activeLogo = settings.appLogo || logoImg
-  const activeBanner = settings.founderBanner || bannerImg
-
   if (!isOpen) return null
 
-  const handleOpenLink = (url: string) => {
-    if (window.electronAPI) {
-      window.open(url, '_blank')
-    } else {
-      window.open(url, '_blank', 'noopener,noreferrer')
+  // Configurable contact details from dynamic admin settings
+  const emailVal = settings.email || 'lc1229501@gmail.com'
+  const instaHandle = settings.instagramHandle || '@lucky_bhambhu'
+  const instaUrl = settings.instagramUrl || 'https://instagram.com/lucky_bhambhu'
+  const ytHandle = settings.youtubeHandle || 'lucky bhambhu vlog'
+  const ytUrl = settings.youtubeUrl || 'https://youtube.com/@luckybhambhuvlog'
+  const fbHandle = settings.facebookHandle || 'LBM Mirror Official'
+  const fbUrl = settings.facebookUrl || 'https://facebook.com/LBMMirror'
+  const phoneVal = settings.phone || settings.whatsapp || '+91 9587124896'
+
+  // Clean application name without "Private Limited"
+  const cleanAppName = (settings.appName || 'LBM Mirror').replace(/Private Limited/gi, '').trim()
+  const cleanFounderRole = `Founder & CEO — ${cleanAppName}`
+
+  /**
+   * Safely opens external links in the user's default web browser (Chrome, Edge, etc.)
+   */
+  const handleOpenLink = async (target: string, type: 'email' | 'instagram' | 'youtube' | 'facebook' | 'whatsapp') => {
+    let url = (target || '').trim()
+    if (!url) return
+
+    if (type === 'email') {
+      url = url.startsWith('mailto:') ? url : `mailto:${url}`
+    } else if (type === 'whatsapp') {
+      const digits = url.replace(/[^0-9]/g, '')
+      url = `https://wa.me/${digits || '919587124896'}`
+    } else if (type === 'instagram') {
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        const handle = url.replace(/^@/, '').replace(/^instagram\.com\//, '')
+        url = `https://www.instagram.com/${handle}/`
+      }
+    } else if (type === 'youtube') {
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        if (url.startsWith('@')) {
+          url = `https://www.youtube.com/${url}`
+        } else if (url.includes('youtube.com/')) {
+          url = `https://${url.replace(/^https?:\/\//, '')}`
+        } else {
+          url = `https://www.youtube.com/results?search_query=${encodeURIComponent(url)}`
+        }
+      }
+    } else if (type === 'facebook') {
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        const page = url.replace(/^facebook\.com\//, '')
+        url = `https://www.facebook.com/${page}`
+      }
+    } else if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('mailto:')) {
+      url = `https://${url}`
     }
+
+    // First try Electron's native shell.openExternal
+    if (typeof window !== 'undefined' && window.electronAPI?.openExternal) {
+      try {
+        const res = await window.electronAPI.openExternal(url)
+        if (res && res.success) return
+      } catch (err) {
+        console.warn('[FounderModal] openExternal failed, falling back to window.open:', err)
+      }
+    }
+
+    // Fallback for standard browser
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,7 +88,6 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
 
     setLoading(true)
     try {
-      // Send query to local server API
       await fetch('/api/support/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,7 +99,6 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
         }),
       }).catch(() => null)
 
-      // Even if offline, acknowledge submission
       setSubmitted(true)
     } catch {
       setSubmitted(true)
@@ -78,10 +116,15 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
         {/* Modal Top Bar */}
         <div className="founder-modal-header">
           <div className="founder-header-badge">
-            <img src={activeLogo} alt={settings.appName} className="founder-header-logo" />
+            <img
+              src={logoImg}
+              alt={cleanAppName}
+              className="founder-header-logo"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = logoImg }}
+            />
             <div>
               <h2 className="founder-header-title">Founder &amp; CEO Profile</h2>
-              <p className="founder-header-subtitle">{settings.appName} Private Limited</p>
+              <p className="founder-header-subtitle">{cleanAppName}</p>
             </div>
           </div>
           <button
@@ -96,25 +139,21 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
 
         {/* Modal Scrollable Body */}
         <div className="founder-modal-body">
-          {/* Main Visual Poster */}
-          <div className="founder-banner-wrapper">
-            <img
-              src={activeBanner}
-              alt={`${settings.founderName || 'Founder & CEO'} - ${settings.appName}`}
-              className="founder-banner-img"
-            />
-            <div className="founder-banner-overlay">
-              <span className="founder-quote">
-                &ldquo;{settings.founderQuote || 'Ideas To A More Connected World'}&rdquo;
-              </span>
-            </div>
-          </div>
-
-          {/* Founder Identity Card */}
+          {/* 1. Founder Identity Card with Official Logo */}
           <div className="founder-info-bar">
-            <div className="founder-identity">
-              <h3 className="founder-name">{settings.founderName || 'Laxman Choudhary'}</h3>
-              <p className="founder-role">{settings.founderRole || 'Founder & CEO'}</p>
+            <div className="founder-identity-wrapper">
+              <div className="founder-avatar-box">
+                <img
+                  src={logoImg}
+                  alt="LBM Logo"
+                  className="founder-official-logo"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = logoImg }}
+                />
+              </div>
+              <div className="founder-identity">
+                <h3 className="founder-name">{settings.founderName || 'Laxman Choudhary'}</h3>
+                <p className="founder-role">{cleanFounderRole}</p>
+              </div>
             </div>
             <div className="founder-tags">
               <span className="ftag">🚀 Screen Mirroring Pioneer</span>
@@ -123,15 +162,30 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
             </div>
           </div>
 
-          {/* Official Social & Contact Handles Grid */}
+          {/* 2. Official Visual Poster (Placed JUST BELOW Founder and CEO) */}
+          <div className="founder-banner-wrapper">
+            <img
+              src={bannerImg}
+              alt={`${settings.founderName || 'Laxman Choudhary'} - ${cleanAppName}`}
+              className="founder-banner-img"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = bannerImg }}
+            />
+            <div className="founder-banner-overlay">
+              <span className="founder-quote">
+                &ldquo;{settings.founderQuote || 'Ideas To A More Connected World'}&rdquo;
+              </span>
+            </div>
+          </div>
+
+          {/* 3. Official Social & Contact Handles Grid (Placed JUST BELOW Poster) */}
           <div className="founder-contact-section">
             <h4 className="section-heading">Connect Directly with Founder</h4>
             <div className="social-links-grid">
-              {/* 1. Email ID (Top priority as requested) */}
+              {/* Official Email ID */}
               <button
                 type="button"
                 className="contact-card email-card"
-                onClick={() => handleOpenLink(`mailto:${contactDetails.email}`)}
+                onClick={() => handleOpenLink(emailVal, 'email')}
                 title="Send Email"
               >
                 <div className="contact-icon email-icon">
@@ -141,17 +195,17 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
                   </svg>
                 </div>
                 <div className="contact-text">
-                  <span className="contact-label">Official Email ID</span>
-                  <span className="contact-val">{contactDetails.email}</span>
+                  <span className="contact-label">OFFICIAL EMAIL ID</span>
+                  <span className="contact-val">{emailVal}</span>
                 </div>
                 <span className="contact-arrow">&rarr;</span>
               </button>
 
-              {/* 2. Instagram Profile */}
+              {/* Instagram Profile */}
               <button
                 type="button"
                 className="contact-card insta-card"
-                onClick={() => handleOpenLink(contactDetails.instagram)}
+                onClick={() => handleOpenLink(instaUrl || instaHandle, 'instagram')}
                 title="Open Instagram"
               >
                 <div className="contact-icon insta-icon">
@@ -162,17 +216,17 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
                   </svg>
                 </div>
                 <div className="contact-text">
-                  <span className="contact-label">Instagram</span>
-                  <span className="contact-val">{contactDetails.instagramHandle}</span>
+                  <span className="contact-label">INSTAGRAM</span>
+                  <span className="contact-val">{instaHandle.startsWith('@') ? instaHandle : `@${instaHandle}`}</span>
                 </div>
                 <span className="contact-arrow">&rarr;</span>
               </button>
 
-              {/* 3. YouTube Account */}
+              {/* YouTube Account */}
               <button
                 type="button"
                 className="contact-card youtube-card"
-                onClick={() => handleOpenLink(contactDetails.youtube)}
+                onClick={() => handleOpenLink(ytUrl || ytHandle, 'youtube')}
                 title="Open YouTube"
               >
                 <div className="contact-icon youtube-icon">
@@ -182,17 +236,17 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
                   </svg>
                 </div>
                 <div className="contact-text">
-                  <span className="contact-label">YouTube</span>
-                  <span className="contact-val">{contactDetails.youtubeHandle}</span>
+                  <span className="contact-label">YOUTUBE</span>
+                  <span className="contact-val">{ytHandle}</span>
                 </div>
                 <span className="contact-arrow">&rarr;</span>
               </button>
 
-              {/* 4. Facebook */}
+              {/* Facebook */}
               <button
                 type="button"
                 className="contact-card fb-card"
-                onClick={() => handleOpenLink(contactDetails.facebook)}
+                onClick={() => handleOpenLink(fbUrl || fbHandle, 'facebook')}
                 title="Open Facebook"
               >
                 <div className="contact-icon fb-icon">
@@ -201,17 +255,17 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
                   </svg>
                 </div>
                 <div className="contact-text">
-                  <span className="contact-label">Facebook</span>
-                  <span className="contact-val">{contactDetails.facebookHandle}</span>
+                  <span className="contact-label">FACEBOOK</span>
+                  <span className="contact-val">{fbHandle}</span>
                 </div>
                 <span className="contact-arrow">&rarr;</span>
               </button>
 
-              {/* 5. Direct Contact / Phone Number */}
+              {/* Direct Contact / Phone Number */}
               <button
                 type="button"
                 className="contact-card phone-card"
-                onClick={() => handleOpenLink(contactDetails.whatsapp)}
+                onClick={() => handleOpenLink(phoneVal, 'whatsapp')}
                 title="Call or WhatsApp"
               >
                 <div className="contact-icon phone-icon">
@@ -220,66 +274,54 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
                   </svg>
                 </div>
                 <div className="contact-text">
-                  <span className="contact-label">Direct Contact / WhatsApp</span>
-                  <span className="contact-val">{contactDetails.phone}</span>
+                  <span className="contact-label">DIRECT CONTACT / WHATSAPP</span>
+                  <span className="contact-val">{phoneVal}</span>
                 </div>
                 <span className="contact-arrow">&rarr;</span>
               </button>
             </div>
           </div>
 
-          {/* Interactive Problem / Query Box as requested */}
-          <div className="founder-query-section">
-            <div className="query-header">
-              <div className="query-icon-badge">💬</div>
+          {/* 4. Query / Direct Message to Founder */}
+          <div className="founder-message-section">
+            <div className="message-header-box">
+              <span className="message-bubble-icon">💬</span>
               <div>
-                <h4 className="query-title">Facing Any Issue? Message the Founder Directly</h4>
-                <p className="query-desc">
+                <h4 className="message-box-title">Facing Any Issue? Message the Founder Directly</h4>
+                <p className="message-box-sub">
                   अगर आपको कोई भी समस्या आ रही है, तो नीचे अपना संदेश लिखें। आपका मैसेज सीधे फाउंडर तक पहुँचेगा।
                 </p>
               </div>
             </div>
 
             {submitted ? (
-              <div className="query-success-box">
-                <div className="success-icon">✓</div>
-                <div className="success-content">
-                  <h5>Message Received Successfully!</h5>
-                  <p>
-                    आपका संदेश सीधे <strong>{settings.founderName || 'Laxman Choudhary'} ({settings.founderRole || 'Founder & CEO'})</strong> को भेज दिया गया है। हमारी टीम जल्द ही आपसे संपर्क करेगी।
+              <div className="message-success-card">
+                <span className="success-icon">✓</span>
+                <div>
+                  <h5 className="success-title">Message Sent Successfully!</h5>
+                  <p className="success-sub">
+                    धन्यवाद! आपका संदेश सीधे फाउंडर को भेज दिया गया है। हम जल्द ही आपसे संपर्क करेंगे।
                   </p>
-                  <button
-                    type="button"
-                    className="send-another-btn"
-                    onClick={() => {
-                      setSubmitted(false)
-                      setMessage('')
-                    }}
-                  >
-                    Send Another Message
-                  </button>
                 </div>
               </div>
             ) : (
-              <form className="query-form" onSubmit={handleSubmit}>
-                <div className="form-row-dual">
-                  <div className="form-group">
-                    <label htmlFor="user-name">Your Name (आपका नाम):</label>
+              <form onSubmit={handleSubmit} className="founder-form">
+                <div className="form-row-2col">
+                  <div className="form-field">
+                    <label className="field-label">Your Name (आपका नाम):</label>
                     <input
-                      id="user-name"
                       type="text"
-                      className="query-input"
+                      className="founder-input"
                       placeholder="e.g. Rahul Sharma"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                     />
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="user-contact">Contact No. / Email (फोन या ईमेल):</label>
+                  <div className="form-field">
+                    <label className="field-label">Contact No. / Email (फ़ोन या ईमेल):</label>
                     <input
-                      id="user-contact"
                       type="text"
-                      className="query-input"
+                      className="founder-input"
                       placeholder="e.g. 98XXXXXXXX or name@mail.com"
                       value={contact}
                       onChange={(e) => setContact(e.target.value)}
@@ -287,38 +329,25 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label htmlFor="user-problem">Describe Your Issue / Problem (समस्या का विवरण):</label>
+                <div className="form-field">
+                  <label className="field-label">Describe your issue / Feedback (अपनी समस्या लिखें):</label>
                   <textarea
-                    id="user-problem"
-                    className="query-textarea"
-                    rows={4}
-                    required
-                    placeholder="लिखें कि स्क्रीन मिररिंग या ऐप में क्या समस्या आ रही है..."
+                    className="founder-textarea"
+                    rows={3}
+                    placeholder="लिखें कि क्या समस्या आ रही है (जैसे: स्क्रीन कनेक्ट नहीं हो रही, आदि)..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
+                    required
                   />
                 </div>
 
                 <div className="form-submit-row">
                   <button
                     type="submit"
-                    className="submit-query-btn"
+                    className="founder-submit-btn"
                     disabled={loading || !message.trim()}
                   >
-                    {loading ? 'Sending Message…' : '✉️ Send Message to Founder'}
-                  </button>
-                  <button
-                    type="button"
-                    className="whatsapp-query-btn"
-                    onClick={() => {
-                      const text = encodeURIComponent(
-                        `*LBM Mirror Support Query*\nName: ${name || 'User'}\nContact: ${contact || 'N/A'}\nMessage: ${message || 'Need support with LBM Mirror'}`
-                      )
-                      handleOpenLink(`${contactDetails.whatsapp}?text=${text}`)
-                    }}
-                  >
-                    💬 Send via WhatsApp
+                    {loading ? 'Sending Message...' : '🚀 Send Message Directly to Founder'}
                   </button>
                 </div>
               </form>

@@ -27,7 +27,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   appTagline: 'Screen Mirroring',
   appLogo: logoImg,
   founderName: 'Laxman Choudhary',
-  founderRole: 'Founder & CEO — LBM Mirror Private Limited',
+  founderRole: 'Founder & CEO — LBM Mirror',
   founderQuote: 'Ideas To A More Connected World',
   founderBanner: bannerImg,
   email: 'contact@laxmanchoudhary.com',

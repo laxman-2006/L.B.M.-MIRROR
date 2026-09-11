@@ -29,7 +29,7 @@ const DEFAULT_SETTINGS = {
   appTagline: 'Screen Mirroring',
   appLogo: '/logo.png',
   founderName: 'Laxman Choudhary',
-  founderRole: 'Founder & CEO — LBM Mirror Private Limited',
+  founderRole: 'Founder & CEO — LBM Mirror',
   founderQuote: 'Ideas To A More Connected World',
   founderBanner: '/founder_banner.jpg',
   email: 'contact@laxmanchoudhary.com',

@@ -73,9 +73,17 @@ export type AdbDevice = {
   usb?: string
 }
 
+export interface NetworkInterfaceItem {
+  name: string
+  ip: string
+  priority?: number
+  isWifi?: boolean
+  isEthernet?: boolean
+}
+
 export interface ElectronAPI {
   isElectron: boolean
-  getNetworkInfo: () => Promise<{ ip: string; hostname: string; platform: string }>
+  getNetworkInfo: () => Promise<{ ip: string; allIps?: NetworkInterfaceItem[]; hostname: string; platform: string }>
   auth?: {
     signup: (data: { username?: string; email: string; password: string }) => Promise<{ success: boolean; user?: any; token?: string; error?: string; message?: string }>
     login: (data: { identifier?: string; email?: string; username?: string; password: string }) => Promise<{ success: boolean; user?: any; token?: string; error?: string; message?: string }>
@@ -89,12 +97,18 @@ export interface ElectronAPI {
     downloadAdb: () => Promise<{ installed: boolean; path: string }>
     getDevices: () => Promise<AdbDevice[]>
     restartServer: () => Promise<{ success: boolean; error?: string }>
+    installApk: (serial: string) => Promise<{ success: boolean; message?: string; error?: string }>
     startMirroring: (serial: string, options?: { fps?: number; resolution?: string; bitrate?: number; stayAwake?: boolean; turnScreenOff?: boolean; noAudio?: boolean; codec?: string }) => Promise<{ success: boolean; error?: string; serial?: string; resolution?: string; fps?: number }>
     stopMirroring: () => Promise<{ success: boolean }>
     onDeviceList: (cb: (devices: AdbDevice[]) => void) => () => void
     onFrame: (cb: (frame: { image: string; resolution: string; latency: string }) => void) => () => void
     onStats: (cb: (stats: Partial<StatsState>) => void) => () => void
     onDownloadProgress: (cb: (p: { status: string; message: string }) => void) => () => void
+  }
+  remoteInput?: {
+    start: () => Promise<{ success: boolean; width?: number; height?: number; error?: string }>
+    stop: () => Promise<{ success: boolean }>
+    sendEvent: (event: any) => Promise<{ success: boolean }>
   }
   airplay: {
     startReceiver: (options?: { serviceName?: string; fps?: number }) => Promise<{ running: boolean; serviceName?: string; port?: number }>
@@ -111,6 +125,7 @@ export interface ElectronAPI {
     maximize: () => Promise<void>
     close: () => Promise<void>
   }
+  openExternal?: (url: string) => Promise<{ success: boolean; error?: string }>
 }
 
 declare global {

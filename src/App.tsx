@@ -507,6 +507,36 @@ export default function App() {
     }
   }
 
+  const handleRestartAdb = async () => {
+    if (!window.electronAPI?.adb) return
+    setIsRefreshingAdb(true)
+    try {
+      await window.electronAPI.adb.restartServer()
+      const devs = await window.electronAPI.adb.getDevices()
+      setAdbDevices(devs || [])
+      showToast('🔄 ADB Server restarted and refreshed!')
+    } catch {
+      setErrorText('Failed to restart ADB server.')
+    } finally {
+      setIsRefreshingAdb(false)
+    }
+  }
+
+  const handleInstallApkToPhone = async (serial: string) => {
+    if (!window.electronAPI?.adb) return
+    showToast('⏳ Installing LBMMirror.apk to phone via USB...')
+    try {
+      const res = await window.electronAPI.adb.installApk(serial)
+      if (res.success) {
+        showToast(`✅ ${res.message || 'App installed successfully on phone!'}`)
+      } else {
+        setErrorText(res.error || 'Failed to install APK.')
+      }
+    } catch (err: any) {
+      setErrorText(err.message || 'Installation error')
+    }
+  }
+
   const handleStartAdbMirroring = async (serial: string) => {
     requireAuthForCasting(async () => {
       if (!window.electronAPI) return
@@ -793,12 +823,6 @@ export default function App() {
 
           {/* Right: "Your ID / Log in" profile widget + Window controls */}
           <div className="header-right-group">
-            {/* Runtime Mode Pill */}
-            <div className={`runtime-status-pill ${isElectron ? 'electron-mode' : 'web-mode'}`}>
-              <span className="runtime-dot" />
-              <span>{isElectron ? '🖥️ Desktop EXE' : '🌐 Web App'}</span>
-            </div>
-
             {currentUser ? (
               <div className="header-user-widget">
                 <div className="user-avatar-circle glow-avatar">
@@ -1212,6 +1236,39 @@ export default function App() {
                     ) : (
                       /* Desktop Electron Mode: Native ADB */
                       <div className="android-usb-controls">
+                        {/* Unauthorized Device Alert Banner */}
+                        {adbDevices.some((d) => d.status === 'unauthorized') && (
+                          <div className="usb-unauth-card">
+                            <div className="unauth-header-row">
+                              <span className="unauth-icon">⚠️</span>
+                              <div className="unauth-text">
+                                <strong>फ़ोन कनेक्ट है लेकिन अनऑथराइज्ड (Unauthorized) है!</strong>
+                                <p>
+                                  कृपया अपने फ़ोन की स्क्रीन अनलॉक करें। फ़ोन स्क्रीन पर <strong>"Allow USB debugging?"</strong> का पॉपअप आया होगा — उसमें <strong>"Always allow from this computer"</strong> पर टिक करके <strong>"OK / Allow"</strong> दबाएं।
+                                </p>
+                              </div>
+                            </div>
+                            <div className="unauth-actions-row">
+                              <button
+                                type="button"
+                                className="unauth-btn primary"
+                                onClick={handleRefreshAdb}
+                                disabled={isRefreshingAdb}
+                              >
+                                🔄 Check Permission Again (चेक करें)
+                              </button>
+                              <button
+                                type="button"
+                                className="unauth-btn secondary"
+                                onClick={handleRestartAdb}
+                                disabled={isRefreshingAdb}
+                              >
+                                🔄 Restart ADB Server
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Detected ADB devices */}
                         <div className="adb-devices-bar">
                           <label>Detected Phone:</label>
@@ -1223,7 +1280,7 @@ export default function App() {
                             >
                               {adbDevices.map((d) => (
                                 <option key={d.serial} value={d.serial}>
-                                  {d.model || d.serial} ({d.status})
+                                  {d.model || d.serial} ({d.status === 'device' ? 'Authorized' : d.status})
                                 </option>
                               ))}
                             </select>
@@ -1238,6 +1295,16 @@ export default function App() {
                             disabled={isRefreshingAdb}
                           >
                             {isRefreshingAdb ? 'Scanning…' : '🔄 Scan USB'}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="refresh-btn"
+                            onClick={handleRestartAdb}
+                            disabled={isRefreshingAdb}
+                            title="Restart ADB background service"
+                          >
+                            🔄 Reset ADB
                           </button>
                         </div>
 
@@ -1266,7 +1333,7 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div className="usb-start-action">
+                        <div className="usb-actions-flex">
                           <button
                             type="button"
                             className="airplayer-blue-btn large"
@@ -1282,7 +1349,62 @@ export default function App() {
                           >
                             ⚡ Start USB Mirroring (Scrcpy 60 FPS)
                           </button>
+
+                          {adbDevices.length > 0 && (
+                            <button
+                              type="button"
+                              className="usb-direct-apk-action-btn"
+                              onClick={() => handleInstallApkToPhone(selectedAdbSerial || adbDevices[0].serial)}
+                              title="Directly install LBMMirror.apk to connected phone over USB"
+                            >
+                              📲 1-Click Install App on Phone via USB
+                            </button>
+                          )}
                         </div>
+
+                        {/* If No Devices Detected, Show 5-Step Visual Guide */}
+                        {adbDevices.length === 0 && (
+                          <div className="usb-troubleshoot-guide-card">
+                            <h4 className="guide-heading">📲 USB से फोन कनेक्ट करने के 5 आसान स्टेप्स:</h4>
+                            <div className="guide-steps-grid">
+                              <div className="guide-step-box">
+                                <span className="step-badge-num">1</span>
+                                <div>
+                                  <strong>Data Cable लगाएं:</strong>
+                                  <p>सिर्फ चार्जिंग वाली केबल काम नहीं करती, फोन के साथ आई असली डेटा केबल लगाएं।</p>
+                                </div>
+                              </div>
+                              <div className="guide-step-box">
+                                <span className="step-badge-num">2</span>
+                                <div>
+                                  <strong>USB Mode = File Transfer (MTP):</strong>
+                                  <p>फोन के नोटिफिकेशन बार में "Charging" पर टैप करके "File Transfer" चुनें।</p>
+                                </div>
+                              </div>
+                              <div className="guide-step-box">
+                                <span className="step-badge-num">3</span>
+                                <div>
+                                  <strong>Developer Options खोलें:</strong>
+                                  <p>Settings &gt; About Phone में जाकर <strong>Build Number</strong> पर 7 बार टैप करें।</p>
+                                </div>
+                              </div>
+                              <div className="guide-step-box">
+                                <span className="step-badge-num">4</span>
+                                <div>
+                                  <strong>USB Debugging चालू करें:</strong>
+                                  <p>Settings &gt; Developer Options में जाकर <strong>USB Debugging</strong> को ON करें।</p>
+                                </div>
+                              </div>
+                              <div className="guide-step-box">
+                                <span className="step-badge-num">5</span>
+                                <div>
+                                  <strong>Allow USB Debugging:</strong>
+                                  <p>फोन स्क्रीन पर आने वाले पॉपअप में "Always allow" टिक करके <strong>Allow</strong> दबाएं।</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         <div className="device-info-pill-bar">
                           <span className="info-label">Device info:</span>
@@ -1539,6 +1661,7 @@ export default function App() {
               status={status}
               quality={quality}
               stats={stats}
+              isUltraViewer={activeConnectedDevice?.type === 'UltraViewer Remote Control' || activeConnectedDevice?.platform === 'Windows'}
               onDisconnect={() => {
                 handleDisconnectDevice()
                 setShowViewerModal(false)

@@ -714,7 +714,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onSwitchToUserView }) =>
                         type="text"
                         value={formData.founderRole}
                         onChange={(e) => handleChange('founderRole', e.target.value)}
-                        placeholder="Founder & CEO — LBM Mirror Private Limited"
+                        placeholder="Founder & CEO — LBM Mirror"
                         className="admin-input-field"
                       />
                     </div>

@@ -76,7 +76,8 @@
       "package.json"
     ],
     "asarUnpack": [
-      "server/**/*"
+      "server/**/*",
+      "electron/bridge/remote_input_agent.ps1"
     ],
     "extraResources": [
       {
