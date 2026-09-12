@@ -15,6 +15,16 @@ const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
   { urls: 'stun:stun.services.mozilla.com' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  {
+    urls: [
+      'turn:openrelay.metered.ca:80',
+      'turn:openrelay.metered.ca:443',
+      'turn:openrelay.metered.ca:443?transport=tcp',
+    ],
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
 ]
 
 export class WebRtcService {
@@ -65,15 +75,29 @@ export class WebRtcService {
     }
 
     const fps = options?.frameRate || 60
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: {
-        cursor: 'always',
-        frameRate: { ideal: fps, max: 60 },
-        width: options?.width ? { ideal: options.width } : undefined,
-        height: options?.height ? { ideal: options.height } : undefined,
-      } as MediaTrackConstraints,
-      audio: true,
-    })
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          cursor: 'always',
+          frameRate: { ideal: fps, max: 60 },
+          width: options?.width ? { ideal: options.width } : undefined,
+          height: options?.height ? { ideal: options.height } : undefined,
+        } as MediaTrackConstraints,
+        audio: true,
+      })
+    } catch {
+      // Fallback without system audio loopback in environments where audio capture fails
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          cursor: 'always',
+          frameRate: { ideal: fps, max: 60 },
+          width: options?.width ? { ideal: options.width } : undefined,
+          height: options?.height ? { ideal: options.height } : undefined,
+        } as MediaTrackConstraints,
+        audio: false,
+      })
+    }
 
     this.localStream = stream
     return stream

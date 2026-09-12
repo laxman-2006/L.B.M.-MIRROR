@@ -19,6 +19,8 @@ export interface AppSettings {
   youtubeUrl: string
   facebookHandle: string
   facebookUrl: string
+  windowsDownloadUrl?: string
+  androidDownloadUrl?: string
   adminPin?: string
 }
 
@@ -39,6 +41,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   youtubeUrl: 'https://youtube.com/@LBMMirror',
   facebookHandle: 'LBM Mirror Official',
   facebookUrl: 'https://facebook.com/LBMMirror',
+  windowsDownloadUrl: 'https://github.com/laxman-2006/L.B.M.-MIRROR/releases/latest',
+  androidDownloadUrl: '/api/download/android',
   adminPin: '1229',
 }
 

@@ -12,6 +12,7 @@ type MirrorViewerProps = {
   stats?: StatsState
   isUltraViewer?: boolean
   onFullscreen?: () => void
+  onMinimize?: () => void
   onDisconnect: () => void
   onReconnect?: () => void
   onQualityChange: (quality: 'Low' | 'Balanced' | 'High') => void
@@ -29,6 +30,7 @@ export function MirrorViewer({
   stats,
   isUltraViewer = false,
   onFullscreen,
+  onMinimize,
   onDisconnect,
   onReconnect,
   onQualityChange,
@@ -57,10 +59,25 @@ export function MirrorViewer({
 
   const lastMouseMoveRef = useRef<number>(0)
 
+  // Callback ref to bind MediaStream immediately when <video> mounts in DOM
+  const videoRefCallback = useCallback(
+    (videoEl: HTMLVideoElement | null) => {
+      videoRef.current = videoEl
+      if (videoEl && stream) {
+        videoEl.srcObject = stream
+        videoEl.play().catch((err) => {
+          console.log('[MirrorViewer] Autoplay deferred:', err)
+        })
+      }
+    },
+    [stream]
+  )
+
   // Sync stream to video element and detect audio tracks
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream ?? null
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream
+      videoRef.current.play().catch(() => {})
     }
 
     if (stream) {
@@ -342,8 +359,8 @@ export function MirrorViewer({
         <div className="toolbar-left">
           <span className="toolbar-device">{deviceName}</span>
           {label && <span className="toolbar-label">{label}</span>}
-          <span className={`toolbar-status ${status === 'MIRRORING' ? 'mirroring' : ''}`}>
-            ● {status === 'MIRRORING' ? 'LIVE (60 FPS)' : status}
+          <span className={`toolbar-status ${status === 'MIRRORING' || Boolean(stream) ? 'mirroring' : ''}`}>
+            ● {status === 'MIRRORING' || Boolean(stream) ? 'LIVE (60 FPS)' : status}
           </span>
           {stats?.resolution && stats.resolution !== '—' && (
             <span className="toolbar-res-badge">{stats.resolution}</span>
@@ -465,6 +482,18 @@ export function MirrorViewer({
             📊 Stats
           </button>
 
+          {/* Minimize Button */}
+          {onMinimize && (
+            <button
+              type="button"
+              className="toolbar-pill minimize-pill"
+              onClick={onMinimize}
+              title="Minimize remote window to check main dashboard"
+            >
+              ➖ Minimize
+            </button>
+          )}
+
           {/* Fullscreen Button */}
           <button
             type="button"
@@ -533,7 +562,7 @@ export function MirrorViewer({
           />
         ) : stream ? (
           <video
-            ref={videoRef}
+            ref={videoRefCallback}
             autoPlay
             playsInline
             muted={isAudioMuted}

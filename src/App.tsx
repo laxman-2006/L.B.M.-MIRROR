@@ -74,10 +74,25 @@ export default function App() {
   const [authMode, setAuthMode] = useState<'signup' | 'login'>('login')
   const [authGateMessage, setAuthGateMessage] = useState<string>('')
   const [showDownloadModal, setShowDownloadModal] = useState<boolean>(false)
+  const [downloadModalTab, setDownloadModalTab] = useState<'windows' | 'android' | 'usb' | 'cloud'>('windows')
   const [showFaqsModal, setShowFaqsModal] = useState<boolean>(false)
   const [showViewerModal, setShowViewerModal] = useState<boolean>(false)
   const [showFounderModal, setShowFounderModal] = useState<boolean>(false)
   const [showAppInfoModal, setShowAppInfoModal] = useState<boolean>(false)
+
+  // Detect ?download=windows or ?download=android parameter from WhatsApp/Telegram links
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('download') === 'windows' || params.has('download')) {
+        setDownloadModalTab('windows')
+        setShowDownloadModal(true)
+      } else if (params.get('download') === 'android') {
+        setDownloadModalTab('android')
+        setShowDownloadModal(true)
+      }
+    }
+  }, [])
 
   // ─── App Settings & Admin State ───────────────────────────────────────────
   const { settings } = useAppSettings()
@@ -571,13 +586,18 @@ export default function App() {
   const handleDisconnectDevice = async () => {
     if (window.electronAPI) {
       window.electronAPI.adb.stopMirroring().catch(() => {})
+      if (window.electronAPI.remoteInput) {
+        window.electronAPI.remoteInput.stop().catch(() => {})
+      }
     }
     defaultWebRtcService.close()
+    defaultPeerService.destroyPeer()
     setRemoteMediaStream(null)
     setActiveConnectedDevice(null)
     setStatus('WAITING')
     setAdbFrameImage(null)
     setWebUsbDevice(null)
+    setShowViewerModal(false)
     showToast('Device disconnected.')
   }
 
@@ -926,9 +946,12 @@ export default function App() {
               <button
                 type="button"
                 className="web-download-quick-btn"
-                onClick={() => setShowDownloadModal(true)}
+                onClick={() => {
+                  setDownloadModalTab('windows')
+                  setShowDownloadModal(true)
+                }}
               >
-                ⬇️ Download Desktop EXE
+                📥 Download to Windows
               </button>
             </div>
           </div>
@@ -1506,6 +1529,7 @@ export default function App() {
                   fps: '60 FPS',
                   resolution: '1920x1080',
                 })
+                setStatus('MIRRORING')
                 setShowViewerModal(true)
               }}
               showToast={showToast}
@@ -1532,7 +1556,7 @@ export default function App() {
             <div className="connected-device-card">
               <div className="connected-device-top">
                 <div className="dev-icon-badge">
-                  {activeConnectedDevice.platform === 'iOS' ? '🍎' : '🤖'}
+                  {activeConnectedDevice.platform === 'iOS' ? '🍎' : activeConnectedDevice.platform === 'Windows' ? '💻' : '🤖'}
                 </div>
                 <div className="dev-name-col">
                   <h4 className="dev-name">{activeConnectedDevice.name}</h4>
@@ -1614,6 +1638,7 @@ export default function App() {
         <AppDownloadModal
           localIp={currentHostIp}
           currentPin={currentPin}
+          initialTab={downloadModalTab}
           onClose={() => setShowDownloadModal(false)}
         />
       )}
@@ -1643,33 +1668,23 @@ export default function App() {
         }}
       />
 
-      {/* 4. Live Mirror Viewer */}
+      {/* 4. Live Mirror Viewer (Full-Screen Immersive Workspace) */}
       {showViewerModal && (
-        <div className="auth-modal-overlay" onClick={() => setShowViewerModal(false)}>
-          <div className="mirror-viewer-window-card" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="download-close-btn"
-              onClick={() => setShowViewerModal(false)}
-            >
-              ✕
-            </button>
-            <MirrorViewer
-              frameImage={adbFrameImage}
-              stream={remoteMediaStream}
-              deviceName={activeConnectedDevice?.name || 'Casting Device'}
-              status={status}
-              quality={quality}
-              stats={stats}
-              isUltraViewer={activeConnectedDevice?.type === 'UltraViewer Remote Control' || activeConnectedDevice?.platform === 'Windows'}
-              onDisconnect={() => {
-                handleDisconnectDevice()
-                setShowViewerModal(false)
-              }}
-              onQualityChange={(q) => setQuality(q)}
-            />
-          </div>
-        </div>
+        <MirrorViewer
+          frameImage={adbFrameImage}
+          stream={remoteMediaStream}
+          deviceName={activeConnectedDevice?.name || 'Remote Device'}
+          status={status}
+          quality={quality}
+          stats={stats}
+          isUltraViewer={activeConnectedDevice?.type === 'UltraViewer Remote Control' || activeConnectedDevice?.platform === 'Windows'}
+          onMinimize={() => setShowViewerModal(false)}
+          onDisconnect={() => {
+            handleDisconnectDevice()
+            setShowViewerModal(false)
+          }}
+          onQualityChange={(q) => setQuality(q)}
+        />
       )}
 
       {/* 5. Admin Passcode / PIN Verification Modal */}

@@ -15,6 +15,16 @@ const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:global.stun.twilio.com:3478' },
   { urls: 'stun:stun.services.mozilla.com' },
   { urls: 'stun:stun.cloudflare.com:3478' },
+  // OpenRelay Public TURN Relay Servers (Port 80, 443 TCP/UDP) for Symmetric NAT / Mobile Hotspots
+  {
+    urls: [
+      'turn:openrelay.metered.ca:80',
+      'turn:openrelay.metered.ca:443',
+      'turn:openrelay.metered.ca:443?transport=tcp',
+    ],
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
 ]
 
 export interface RemoteControlEvent {

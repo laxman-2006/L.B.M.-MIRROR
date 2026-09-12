@@ -93,6 +93,17 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
       setIsHostReady(true)
     })
 
+    // If running in Desktop app (Electron), automatically start screen capture and input bridge so Host is 100% zero-touch ready (UltraViewer style)
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      acquireScreenStream().then((stream) => {
+        if (stream) {
+          console.log('[WindowsRemoteStage] Auto-stream active: Desktop ready for remote control')
+        }
+      }).catch((err) => {
+        console.warn('[WindowsRemoteStage] Auto-stream init deferred:', err)
+      })
+    }
+
     return () => {
       // Don't kill active stream on transient re-renders, PeerService handles cleanup
     }

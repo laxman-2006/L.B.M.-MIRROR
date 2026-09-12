@@ -6,18 +6,21 @@ import { useAppSettings } from '../context/AppSettingsContext'
 interface AppDownloadModalProps {
   localIp: string
   currentPin?: string
+  initialTab?: 'windows' | 'android' | 'usb' | 'cloud'
   onClose: () => void
 }
 
 export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
   localIp,
   currentPin = '839201',
+  initialTab = 'windows',
   onClose,
 }) => {
   const { settings } = useAppSettings()
   const [copied, setCopied] = useState(false)
+  const [copiedWindows, setCopiedWindows] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
-  const [activeTab, setActiveTab] = useState<'wifi' | 'usb' | 'cloud'>('wifi')
+  const [activeTab, setActiveTab] = useState<'windows' | 'android' | 'usb' | 'cloud'>(initialTab)
 
   // Resolved clean LAN IP (Never fallback to unroutable 169.254.x.x)
   const initialValidIp =
@@ -50,31 +53,53 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
     }
   }, [isElectron])
 
-  // Download URL pointing to the real reachable Wi-Fi IP
+  // Download URLs
   const downloadUrl = `http://${activeIp}:3001/download?pin=${currentPin}`
   const apkDownloadUrl = `http://${activeIp}:3001/api/download/android`
   const cloudUrl = `https://l-b-m-mirror.vercel.app/?join=${currentPin}&mode=sender`
+  const windowsDirectUrl = settings.windowsDownloadUrl || '/api/download/windows'
+  const windowsShareLink = 'https://l-b-m-mirror.vercel.app/?download=windows'
 
   const activeQrTarget = activeTab === 'cloud' ? cloudUrl : downloadUrl
 
   useEffect(() => {
-    QRCode.toDataURL(activeQrTarget, {
-      width: 260,
-      margin: 2,
-      color: {
-        dark: '#0f172a',
-        light: '#ffffff',
-      },
-      errorCorrectionLevel: 'M',
-    })
-      .then((url) => setQrDataUrl(url))
-      .catch((err) => console.error('QR code generation error:', err))
-  }, [activeQrTarget])
+    if (activeTab === 'android' || activeTab === 'cloud') {
+      QRCode.toDataURL(activeQrTarget, {
+        width: 240,
+        margin: 2,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff',
+        },
+        errorCorrectionLevel: 'M',
+      })
+        .then((url) => setQrDataUrl(url))
+        .catch((err) => console.error('QR code generation error:', err))
+    }
+  }, [activeQrTarget, activeTab])
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(activeQrTarget)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const handleCopyLink = (textToCopy: string, isWin = false) => {
+    navigator.clipboard.writeText(textToCopy)
+    if (isWin) {
+      setCopiedWindows(true)
+      setTimeout(() => setCopiedWindows(false), 2000)
+    } else {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleDownloadWindows = () => {
+    // If running on local server, trigger direct download
+    if (windowsDirectUrl) {
+      const a = document.createElement('a')
+      a.href = windowsDirectUrl
+      a.download = 'LBM Mirror Setup 1.0.0.exe'
+      a.target = '_blank'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
   }
 
   const handle1ClickUsbInstall = async () => {
@@ -136,9 +161,9 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
               />
             </div>
             <div>
-              <h2 className="download-modal-title">Connect &amp; Download {settings.appName}</h2>
+              <h2 className="download-modal-title">Download {settings.appName}</h2>
               <p className="download-modal-subtitle">
-                Scan QR Code with your phone camera or install directly via USB cable
+                Official Windows Desktop App, Android APK &amp; Zero-Install Cloud Web App
               </p>
             </div>
           </div>
@@ -147,10 +172,17 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
           <div className="download-tabs-row">
             <button
               type="button"
-              className={`dl-tab-btn ${activeTab === 'wifi' ? 'active' : ''}`}
-              onClick={() => setActiveTab('wifi')}
+              className={`dl-tab-btn ${activeTab === 'windows' ? 'active' : ''}`}
+              onClick={() => setActiveTab('windows')}
             >
-              📶 Local Wi-Fi QR
+              💻 Download to Windows
+            </button>
+            <button
+              type="button"
+              className={`dl-tab-btn ${activeTab === 'android' ? 'active' : ''}`}
+              onClick={() => setActiveTab('android')}
+            >
+              📱 Android APK / QR
             </button>
             <button
               type="button"
@@ -164,16 +196,106 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
               className={`dl-tab-btn ${activeTab === 'cloud' ? 'active' : ''}`}
               onClick={() => setActiveTab('cloud')}
             >
-              🌐 Online Cloud Link
+              🌐 Web App (No Install)
             </button>
           </div>
         </div>
 
         <div className="download-modal-body">
-          {/* TAB 1 & 3: QR CODE VIEW */}
-          {activeTab !== 'usb' ? (
-            <>
-              {/* QR Code Container */}
+          {/* ═══════════════ TAB 1: DOWNLOAD TO WINDOWS ═══════════════ */}
+          {activeTab === 'windows' && (
+            <div className="download-windows-container">
+              <div className="windows-dl-card">
+                <div className="windows-icon-header">
+                  <div className="win-badge-icon-box">
+                    <svg width="42" height="42" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.901-1.8"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="win-dl-title">Download to Windows</h3>
+                    <p className="win-dl-sub">
+                      Official 64-bit Desktop Setup for Windows 10 &amp; 11 • Remote Control (60 FPS)
+                    </p>
+                    <div className="win-spec-tags">
+                      <span className="spec-tag">✓ Windows 10 / 11 (64-bit)</span>
+                      <span className="spec-tag">✓ v1.0.0 Latest</span>
+                      <span className="spec-tag">✓ Any Network / Worldwide</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Big Glowing Primary Download Button */}
+                <div className="win-primary-action">
+                  <button
+                    type="button"
+                    className="win-mega-download-btn"
+                    onClick={handleDownloadWindows}
+                  >
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.901-1.8"/>
+                    </svg>
+                    <div className="btn-label-group">
+                      <span className="btn-main-text">Download to Windows</span>
+                      <span className="btn-sub-text">LBM Mirror Setup 1.0.0.exe (Direct Download)</span>
+                    </div>
+                    <span className="btn-download-arrow">⬇️</span>
+                  </button>
+                </div>
+
+                {/* Shareable Link Box */}
+                <div className="win-share-link-box">
+                  <div className="share-label-row">
+                    <span>📲 Share Link on WhatsApp / Telegram / Instagram:</span>
+                  </div>
+                  <div className="share-input-row">
+                    <input
+                      type="text"
+                      readOnly
+                      value={windowsShareLink}
+                      className="win-share-url-field"
+                    />
+                    <button
+                      type="button"
+                      className={`copy-share-btn ${copiedWindows ? 'copied' : ''}`}
+                      onClick={() => handleCopyLink(windowsShareLink, true)}
+                    >
+                      {copiedWindows ? '✓ Link Copied' : '📋 Copy Link'}
+                    </button>
+                  </div>
+                  <p className="share-hint">
+                    यह लिंक किसी को भी WhatsApp पर भेजें। वो इस लिंक पर क्लिक करके सीधे Chrome से 1-क्लिक में डाउनलोड कर सकेंगे।
+                  </p>
+                </div>
+
+                {/* 3 Step Install Guide */}
+                <div className="win-install-steps">
+                  <h4 className="steps-heading">आसान 3 स्टेप में चालू करें (Quick Setup):</h4>
+                  <div className="win-steps-grid">
+                    <div className="win-step-card">
+                      <span className="step-badge">1</span>
+                      <strong>Download</strong>
+                      <p>ऊपर "Download to Windows" बटन दबाएं और फ़ाइल सेव करें।</p>
+                    </div>
+                    <div className="win-step-card">
+                      <span className="step-badge">2</span>
+                      <strong>Install</strong>
+                      <p>फ़ाइल पर डबल-क्लिक करके "Install" दबाएं (10 सेकंड में इंस्टॉल)।</p>
+                    </div>
+                    <div className="win-step-card">
+                      <span className="step-badge">3</span>
+                      <strong>Control</strong>
+                      <p>ऐप खोलें और Partner ID डालकर UltraViewer की तरह स्क्रीन चलाएं!</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══════════════ TAB 2: ANDROID APK & QR ═══════════════ */}
+          {activeTab === 'android' && (
+            <div className="download-two-column-layout">
               <div className="download-qr-box">
                 <div className="qr-wrapper real-qr">
                   {qrDataUrl ? (
@@ -188,70 +310,25 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                   )}
                 </div>
                 <div className="qr-scan-badge">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5">
-                    <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
-                    <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
-                    <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
-                    <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
-                  </svg>
-                  <span>
-                    {activeTab === 'cloud'
-                      ? 'Scan with phone camera to open in browser (Any Network)'
-                      : 'Scan with phone camera to open download page (Wi-Fi)'}
-                  </span>
+                  <span>📱 Scan with Mobile Camera to Download APK</span>
                 </div>
               </div>
 
-              {/* Download Instructions & Direct Link */}
               <div className="download-info-side">
                 <div className="download-steps">
                   <div className="step-item">
                     <div className="step-num">1</div>
                     <div className="step-content">
-                      <strong>Scan QR Code on Phone</strong>
-                      <p>Point phone camera or Google Lens at the QR code to open the link directly on your mobile.</p>
+                      <strong>Scan QR Code or Tap Download</strong>
+                      <p>Point phone camera at QR code or click the button below.</p>
                     </div>
                   </div>
-
                   <div className="step-item">
                     <div className="step-num">2</div>
                     <div className="step-content">
-                      <strong>Tap "Download LBMMirror.apk"</strong>
-                      <p>If "File might be harmful" prompt appears, tap <strong>Download anyway</strong>.</p>
+                      <strong>Install LBMMirror.apk</strong>
+                      <p>If "File might be harmful" appears, tap <strong>Download anyway</strong>.</p>
                     </div>
-                  </div>
-
-                  <div className="step-item">
-                    <div className="step-num">3</div>
-                    <div className="step-content">
-                      <strong>Zero-Install Web Cast Option</strong>
-                      <p>Or tap <strong>"Cast Directly in Browser"</strong> to mirror screen with zero install!</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Direct Link Box with IP Editor */}
-                <div className="download-link-box">
-                  <div className="url-label-row">
-                    <label htmlFor="app-url-input">
-                      {activeTab === 'cloud' ? 'Cloud Link (Any Network):' : `Local Wi-Fi Link (PC IP: ${activeIp}):`}
-                    </label>
-                  </div>
-                  <div className="url-copy-row">
-                    <input
-                      id="app-url-input"
-                      type="text"
-                      readOnly
-                      value={activeQrTarget}
-                      className="download-url-field"
-                    />
-                    <button
-                      type="button"
-                      className={`copy-url-btn ${copied ? 'copied' : ''}`}
-                      onClick={handleCopyLink}
-                    >
-                      {copied ? '✓ Copied' : 'Copy Link'}
-                    </button>
                   </div>
                 </div>
 
@@ -259,51 +336,45 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                   <a
                     href={apkDownloadUrl}
                     download="LBMMirror.apk"
-                    className="direct-apk-btn"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    className="primary-action-btn"
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="7 10 12 15 17 10"/>
-                      <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    <span>Download LBMMirror.apk (61 MB)</span>
+                    <span>📥 Download LBMMirror.apk (Android)</span>
                   </a>
                 </div>
               </div>
-            </>
-          ) : (
-            /* TAB 2: USB DIRECT 1-CLICK INSTALL */
-            <div className="usb-direct-install-container">
-              <div className="usb-install-hero">
-                <span className="usb-hero-icon">⚡</span>
-                <h3>1-Click Direct Install via USB Cable</h3>
-                <p>
-                  Scan karne ya mobile me download karne ki koi zaroorat nahi hai! Phone ko USB cable se jodein aur 1-click me app install karein.
+            </div>
+          )}
+
+          {/* ═══════════════ TAB 3: USB DIRECT INSTALL ═══════════════ */}
+          {activeTab === 'usb' && (
+            <div className="usb-install-pane">
+              <div className="usb-instructions-box">
+                <h3 className="usb-pane-title">🔌 1-Click USB Direct Install to Phone</h3>
+                <p className="usb-pane-sub">
+                  फोन को USB केबल से कंप्यूटर से जोड़ें और बिना किसी डाउनलोड के सीधे 1-क्लिक में ऐप इंस्टॉल करें।
                 </p>
-              </div>
 
-              <div className="usb-device-check-card">
-                <label>Detected USB Phone:</label>
-                {usbDevices.length > 0 ? (
-                  <div className="detected-phone-badge">
-                    <span>📱 {usbDevices[0].model || usbDevices[0].serial} ({usbDevices[0].status})</span>
+                <div className="usb-device-detect-bar">
+                  <div className="detect-status-indicator">
+                    <span className={`status-bubble ${usbDevices.length > 0 ? 'online' : 'searching'}`} />
+                    <span>
+                      {usbDevices.length > 0
+                        ? `Phone Connected: ${usbDevices[0].model || usbDevices[0].serial}`
+                        : 'No phone detected over USB (Plug in cable and enable USB Debugging)'}
+                    </span>
                   </div>
-                ) : (
-                  <div className="no-phone-warning">
-                    <span>⚠️ No phone detected. Please plug in USB cable and enable USB Debugging.</span>
-                  </div>
-                )}
+                </div>
 
-                <button
-                  type="button"
-                  className="usb-install-action-btn"
-                  onClick={handle1ClickUsbInstall}
-                  disabled={isInstallingUsb}
-                >
-                  {isInstallingUsb ? '⏳ Installing to phone…' : '📲 Install LBMMirror.apk Directly to Phone via USB'}
-                </button>
+                <div className="usb-action-wrapper">
+                  <button
+                    type="button"
+                    className="usb-mega-install-btn"
+                    onClick={handle1ClickUsbInstall}
+                    disabled={isInstallingUsb || usbDevices.length === 0}
+                  >
+                    {isInstallingUsb ? '⏳ Installing to phone...' : '⚡ Install App to Phone via USB'}
+                  </button>
+                </div>
 
                 {usbInstallStatus && (
                   <div className="usb-status-alert">
@@ -311,20 +382,41 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                   </div>
                 )}
               </div>
+            </div>
+          )}
 
-              <div className="usb-steps-mini">
-                <div className="step-mini-row">
-                  <span className="mini-num">1</span>
-                  <span>Connect phone to PC with USB Cable.</span>
+          {/* ═══════════════ TAB 4: WEB APP (NO INSTALL) ═══════════════ */}
+          {activeTab === 'cloud' && (
+            <div className="cloud-tab-pane">
+              <div className="cloud-hero-box">
+                <span className="cloud-big-icon">🌐</span>
+                <h3>LBM Mirror Online Web App</h3>
+                <p>
+                  बिना कोई सॉफ़्टवेयर या ऐप इंस्टॉल किए सीधे Google Chrome या Edge ब्राउज़र में स्क्रीन शेयरिंग और रिमोट कंट्रोल चलाएं।
+                </p>
+                <div className="cloud-url-container">
+                  <input
+                    type="text"
+                    readOnly
+                    value="https://l-b-m-mirror.vercel.app"
+                    className="cloud-url-field"
+                  />
+                  <button
+                    type="button"
+                    className="copy-cloud-url-btn"
+                    onClick={() => handleCopyLink('https://l-b-m-mirror.vercel.app')}
+                  >
+                    {copied ? '✓ Copied' : '📋 Copy Link'}
+                  </button>
                 </div>
-                <div className="step-mini-row">
-                  <span className="mini-num">2</span>
-                  <span>Turn ON <strong>USB Debugging</strong> in Developer Options.</span>
-                </div>
-                <div className="step-mini-row">
-                  <span className="mini-num">3</span>
-                  <span>Tap "Allow" on phone screen and click Install above!</span>
-                </div>
+                <a
+                  href="https://l-b-m-mirror.vercel.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cloud-launch-btn"
+                >
+                  🚀 Open Web App in New Tab
+                </a>
               </div>
             </div>
           )}
