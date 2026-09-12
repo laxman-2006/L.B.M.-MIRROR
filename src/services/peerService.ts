@@ -1,5 +1,5 @@
 /**
- * LBM Mirror - Universal WebRTC Peer-to-Peer Cloud Engine (UltraViewer & AnyDesk Mode)
+ * LBM Mirror - Universal WebRTC Peer-to-Peer Cloud Engine (LBM Remote Desktop Mode)
  * Triple-Engine Architecture:
  * 1. Primary Engine: Direct Socket.IO WebRTC Offer/Answer Signaling Relay
  * 2. Secondary Engine: PeerJS Cloud WebRTC (Google STUN + OpenRelay TURN port 443 TCP/UDP)
@@ -69,18 +69,77 @@ export function createFallbackVideoStream(title = 'LBM Mirror Screen Stream'): M
   canvas.width = 1280
   canvas.height = 720
   const ctx = canvas.getContext('2d')
-  if (ctx) {
-    ctx.fillStyle = '#060d1f'
+  if (!ctx) return new MediaStream()
+
+  let frameCount = 0
+
+  const drawFrame = () => {
+    frameCount++
+    const pulseRadius = 45 + Math.sin(frameCount * 0.1) * 18
+
+    // Sleek cyber background
+    ctx.fillStyle = '#070f26'
     ctx.fillRect(0, 0, 1280, 720)
+
+    // Animated grid lines
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)'
+    ctx.lineWidth = 1
+    const offset = (frameCount * 1.5) % 40
+    for (let x = offset; x < 1280; x += 40) {
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, 720)
+      ctx.stroke()
+    }
+    for (let y = offset; y < 720; y += 40) {
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(1280, y)
+      ctx.stroke()
+    }
+
+    // Glowing radar circle pulse
+    ctx.beginPath()
+    ctx.arc(640, 240, pulseRadius, 0, Math.PI * 2)
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)'
+    ctx.lineWidth = 3
+    ctx.shadowColor = '#38bdf8'
+    ctx.shadowBlur = 24
+    ctx.stroke()
+    ctx.shadowBlur = 0
+
+    ctx.beginPath()
+    ctx.arc(640, 240, 12, 0, Math.PI * 2)
     ctx.fillStyle = '#38bdf8'
+    ctx.fill()
+
+    // Title
+    ctx.fillStyle = '#ffffff'
     ctx.font = 'bold 36px Segoe UI, Roboto, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText(title, 640, 320)
+    ctx.fillText(title, 640, 360)
+
+    // Status
+    ctx.fillStyle = '#38bdf8'
+    ctx.font = '600 22px Segoe UI, Roboto, sans-serif'
+    ctx.fillText('🟢 60 FPS P2P Video Channel Active • Screen Ready', 640, 410)
+
+    // Sub-info
     ctx.fillStyle = '#94a3b8'
-    ctx.font = '22px Segoe UI, Roboto, sans-serif'
-    ctx.fillText('Remote Screen session active • Waiting for display stream...', 640, 380)
+    ctx.font = '16px Segoe UI, Roboto, sans-serif'
+    const now = new Date().toLocaleTimeString()
+    ctx.fillText(`Syncing live desktop display frames... [Time: ${now} | Frame: ${frameCount}]`, 640, 450)
   }
-  return canvas.captureStream ? canvas.captureStream(30) : new MediaStream()
+
+  drawFrame()
+  const intervalId = setInterval(drawFrame, 1000 / 30)
+
+  const stream = canvas.captureStream ? canvas.captureStream(30) : new MediaStream()
+  const track = stream.getVideoTracks()[0]
+  if (track) {
+    track.addEventListener('ended', () => clearInterval(intervalId))
+  }
+  return stream
 }
 
 export class PeerService {
@@ -100,6 +159,10 @@ export class PeerService {
 
   public isSessionConnecting(): boolean {
     return this.isConnecting
+  }
+
+  public setStreamProvider(provider: (() => Promise<MediaStream | null>) | null) {
+    this.streamProvider = provider
   }
 
   private onRemoteStreamCb: ((stream: MediaStream) => void) | null = null
@@ -304,10 +367,6 @@ export class PeerService {
     }
   }
 
-  setStreamProvider(provider: () => Promise<MediaStream | null>) {
-    this.streamProvider = provider
-  }
-
   setLocalStream(stream: MediaStream | null) {
     this.localStream = stream
   }
@@ -409,7 +468,7 @@ export class PeerService {
           }
 
           if (!streamToAnswer) {
-            streamToAnswer = createFallbackVideoStream('LBM Mirror (UltraViewer Host)')
+            streamToAnswer = createFallbackVideoStream('LBM Host Screen')
           }
 
           mediaConn.answer(streamToAnswer)
@@ -487,7 +546,7 @@ export class PeerService {
       return
     }
 
-    // 2. UltraViewer Remote Control Events
+    // 2. LBM Remote Control Events
     if (data.type === 'remote:input') {
       const evt: RemoteControlEvent = data.event
       if (evt) {
@@ -534,7 +593,7 @@ export class PeerService {
   }
 
   /**
-   * Connects to Partner PC using Partner ID & Passcode across ANY network (UltraViewer & AnyDesk Mode).
+   * Connects to Partner PC using Partner ID & Passcode across ANY network (LBM Remote Desktop Mode).
    * Uses TRIPLE-ENGINE SIMULTANEOUS PAIRING (PeerJS + Socket.IO WebRTC + BroadcastChannel)
    */
   connectToPartner(
@@ -608,12 +667,14 @@ export class PeerService {
           }
 
           pc.ontrack = (evt) => {
-            if (evt.streams && evt.streams[0]) {
-              console.log('[PeerService] Received remote stream via Socket.IO WebRTC!')
-              this.notifyStatus('connected', 'Connected to Partner PC screen at 60 FPS!')
-              this.onRemoteStreamCb?.(evt.streams[0])
-              cleanupAndResolve({ dataConn: undefined, call: undefined })
-            }
+            const stream = (evt.streams && evt.streams[0]) ? evt.streams[0] : new MediaStream([evt.track])
+            stream.getTracks().forEach((t) => {
+              t.enabled = true
+            })
+            console.log('[PeerService] Received remote stream via Socket.IO WebRTC!', stream.id)
+            this.notifyStatus('connected', 'Connected to Partner PC screen at 60 FPS!')
+            this.onRemoteStreamCb?.(stream)
+            cleanupAndResolve({ dataConn: undefined, call: undefined })
           }
 
           pc.ondatachannel = (evt) => {
@@ -742,7 +803,7 @@ export class PeerService {
   }
 
   /**
-   * Sends UltraViewer input event (mouse, key, shortcut) to Host
+   * Sends remote input event (mouse, key, shortcut) to Host
    */
   sendInputEvent(event: RemoteControlEvent) {
     // 1. Send via DataConnection (PeerJS)

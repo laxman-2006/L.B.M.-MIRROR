@@ -11,6 +11,7 @@ type MirrorViewerProps = {
   quality: 'Low' | 'Balanced' | 'High'
   stats?: StatsState
   isUltraViewer?: boolean
+  isRemoteControl?: boolean
   onFullscreen?: () => void
   onMinimize?: () => void
   onDisconnect: () => void
@@ -29,6 +30,7 @@ export function MirrorViewer({
   quality,
   stats,
   isUltraViewer = false,
+  isRemoteControl = false,
   onFullscreen,
   onMinimize,
   onDisconnect,
@@ -49,8 +51,8 @@ export function MirrorViewer({
   // Stats HUD modal
   const [showStatsHud, setShowStatsHud] = useState<boolean>(false)
 
-  // ─── UltraViewer Interactive State ─────────────────────────────────────────
-  const [isControlActive, setIsControlActive] = useState<boolean>(isUltraViewer)
+  // ─── Remote Control Interactive State ─────────────────────────────────────
+  const [isControlActive, setIsControlActive] = useState<boolean>(Boolean(isRemoteControl || isUltraViewer))
   const [showChatDrawer, setShowChatDrawer] = useState<boolean>(false)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState<string>('')
@@ -121,7 +123,7 @@ export function MirrorViewer({
     })
   }, [showChatDrawer])
 
-  // ─── Mouse Input Handlers for UltraViewer ──────────────────────────────────
+  // ─── Mouse Input Handlers for Remote Control ───────────────────────────────
   const getNormalizedCoordinates = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const video = videoRef.current
     if (!video) return null
@@ -239,7 +241,7 @@ export function MirrorViewer({
     })
   }
 
-  // ─── Keyboard Input Handlers for UltraViewer ───────────────────────────────
+  // ─── Keyboard Input Handlers for Remote Desktop Control ──────────────────────
   const handleSurfaceKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!isControlActive) return
 
@@ -271,7 +273,7 @@ export function MirrorViewer({
     })
   }
 
-  // ─── Quick Action Shortcuts (UltraViewer Toolbar) ──────────────────────────
+  // ─── Quick Action Shortcuts (Remote Control Toolbar) ─────────────────────────
   const handleSendShortcut = (name: string) => {
     defaultPeerService.sendInputEvent({
       type: 'shortcut',
@@ -362,8 +364,8 @@ export function MirrorViewer({
 
   return (
     <div ref={shellRef} className={`mirror-shell ${isFullscreen ? 'fullscreen-mode' : ''}`}>
-      {/* ── Top UltraViewer Mirror Toolbar ────────────────────────────────── */}
-      <div className="mirror-toolbar ultraviewer-toolbar">
+      {/* ── Top Remote Mirror Toolbar ────────────────────────────────────── */}
+      <div className="mirror-toolbar lbm-remote-toolbar ultraviewer-toolbar">
         <div className="toolbar-left">
           <span className="toolbar-device">{deviceName}</span>
           {label && <span className="toolbar-label">{label}</span>}
@@ -374,7 +376,7 @@ export function MirrorViewer({
             <span className="toolbar-res-badge">{stats.resolution}</span>
           )}
 
-          {/* UltraViewer Control State Toggle */}
+          {/* Remote Desktop Control State Toggle */}
           <button
             type="button"
             className={`toolbar-pill control-mode-pill ${isControlActive ? 'active-control' : ''}`}
@@ -386,7 +388,7 @@ export function MirrorViewer({
         </div>
 
         <div className="toolbar-actions">
-          {/* Quick Action Shortcuts (UltraViewer standard features) */}
+          {/* Quick Action Shortcuts (Remote PC standard features) */}
           <div className="quick-shortcuts-group" title="Send Windows Shortcut to Remote PC">
             <button
               type="button"
@@ -538,7 +540,7 @@ export function MirrorViewer({
 
       {/* Floating Clipboard Notification Banner */}
       {clipboardToast && (
-        <div className="ultraviewer-toast-banner">
+        <div className="lbm-remote-toast-banner ultraviewer-toast-banner">
           <span>{clipboardToast}</span>
         </div>
       )}
@@ -576,6 +578,10 @@ export function MirrorViewer({
             muted={isAudioMuted}
             className="mirror-video"
             style={transformStyle}
+            onLoadedMetadata={(e) => {
+              const el = e.currentTarget
+              el.play().catch(() => {})
+            }}
           />
         ) : (
           <div className="mirror-placeholder">
@@ -599,9 +605,9 @@ export function MirrorViewer({
           </div>
         )}
 
-        {/* ── UltraViewer Remote Chat Drawer ──────────────────────────────── */}
+        {/* ── Remote Chat Drawer ─────────────────────────────────────────── */}
         {showChatDrawer && (
-          <div className="ultraviewer-chat-drawer">
+          <div className="ultraviewer-chat-drawer lbm-remote-chat-drawer">
             <div className="chat-drawer-header">
               <div className="chat-title-group">
                 <span>💬</span>

@@ -162,41 +162,42 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
             </div>
           </div>
 
-          {/* 2. Official Executive Photo & Showcase (Placed JUST BELOW Founder & CEO and Logo) */}
-          <div className="founder-banner-wrapper" style={{ position: 'relative', overflow: 'hidden', borderRadius: 16, border: '1px solid rgba(56, 189, 248, 0.3)', boxShadow: '0 12px 36px rgba(0, 0, 0, 0.6)' }}>
-            <img
-              src="/founder_ceo_showcase.jpg"
-              alt={`${settings.founderName || 'Laxman Choudhary'} - Founder & CEO`}
-              className="founder-banner-img"
-              style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }}
-              onError={(e) => {
-                const target = e.currentTarget as HTMLImageElement
-                if (target.src.indexOf('founder_banner.jpg') === -1) {
-                  target.src = bannerImg
-                }
-              }}
-            />
-            <div className="founder-banner-overlay" style={{ background: 'linear-gradient(to top, rgba(7, 13, 30, 0.95) 0%, rgba(7, 13, 30, 0.3) 60%, transparent 100%)', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                <span style={{ background: 'rgba(37, 99, 235, 0.7)', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: 20 }}>
-                  👥 100K+ Happy Users
-                </span>
-                <span style={{ background: 'rgba(16, 185, 129, 0.7)', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: 20 }}>
-                  ⭐ 4.9★ User Rating
-                </span>
-                <span style={{ background: 'rgba(168, 85, 247, 0.7)', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: 20 }}>
-                  🌐 Available Worldwide
-                </span>
-              </div>
-              <span className="founder-quote" style={{ fontSize: '0.92rem', color: '#f8fafc', fontWeight: 600 }}>
-                &ldquo;Technology should bring people closer.&rdquo; — Laxman Choudhary
-              </span>
-            </div>
-          </div>
-
-          {/* 3. Official Social & Contact Handles Grid (Placed JUST BELOW Poster) */}
+          {/* 2. Official Social & Contact Section */}
           <div className="founder-contact-section">
             <h4 className="section-heading">Connect Directly with Founder</h4>
+
+            {/* Official Executive Photo & Showcase (Placed between 'Connect Directly with Founder' and Contact Cards) */}
+            <div className="founder-banner-wrapper" style={{ position: 'relative', overflow: 'hidden', borderRadius: 16, border: '1px solid rgba(56, 189, 248, 0.3)', boxShadow: '0 12px 36px rgba(0, 0, 0, 0.6)', margin: '14px 0 20px' }}>
+              <img
+                src="/founder_ceo_showcase.jpg"
+                alt={`${settings.founderName || 'Laxman Choudhary'} - Founder & CEO`}
+                className="founder-banner-img"
+                style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }}
+                onError={(e) => {
+                  const target = e.currentTarget as HTMLImageElement
+                  if (target.src.indexOf('founder_banner.jpg') === -1) {
+                    target.src = bannerImg
+                  }
+                }}
+              />
+              <div className="founder-banner-overlay" style={{ background: 'linear-gradient(to top, rgba(7, 13, 30, 0.95) 0%, rgba(7, 13, 30, 0.3) 60%, transparent 100%)', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <span style={{ background: 'rgba(37, 99, 235, 0.7)', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: 20 }}>
+                    👥 100K+ Happy Users
+                  </span>
+                  <span style={{ background: 'rgba(16, 185, 129, 0.7)', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: 20 }}>
+                    ⭐ 4.9★ User Rating
+                  </span>
+                  <span style={{ background: 'rgba(168, 85, 247, 0.7)', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: 20 }}>
+                    🌐 Available Worldwide
+                  </span>
+                </div>
+                <span className="founder-quote" style={{ fontSize: '0.92rem', color: '#f8fafc', fontWeight: 600 }}>
+                  &ldquo;Technology should bring people closer.&rdquo; — Laxman Choudhary
+                </span>
+              </div>
+            </div>
+
             <div className="social-links-grid">
               {/* Official Email ID */}
               <button

@@ -55,6 +55,12 @@ const DEFAULT_STATS: StatsState = {
 export default function App() {
   // ─── Desktop / System State ────────────────────────────────────────────────
   const isElectron = Boolean(window.electronAPI?.isElectron)
+  const isInstalledApp =
+    isElectron ||
+    (typeof window !== 'undefined' &&
+      (window.matchMedia('(display-mode: standalone)').matches ||
+        Boolean((window.navigator as any).standalone) ||
+        localStorage.getItem('lbm_app_downloaded') === 'true'))
   const [networkInfo, setNetworkInfo] = useState<{ ip: string; hostname: string } | null>(null)
 
   // ─── Platform & Navigation State (Photo 1 Reference) ───────────────────────
@@ -205,7 +211,7 @@ export default function App() {
   const [activeConnectedDevice, setActiveConnectedDevice] = useState<{
     name: string
     platform: 'iOS' | 'Android' | 'Windows'
-    type: 'AirPlay' | 'USB ADB' | 'Wi-Fi' | 'UltraViewer' | 'UltraViewer Remote Control'
+    type: 'AirPlay' | 'USB ADB' | 'Wi-Fi' | 'LBM Remote Control'
     ip?: string
     resolution: string
     fps: string
@@ -767,31 +773,36 @@ export default function App() {
 
           <div className="nav-menu-divider" />
 
-          {/* DIRECT WINDOWS EXE DOWNLOAD BUTTON (Required: 1-Click -> Direct .EXE Download -> Downloads Folder) */}
-          <button
-            type="button"
-            className="nav-btn secondary-nav-btn direct-download-setup-btn"
-            onClick={() => triggerDirectExeDownload('LBM_Mirror_Setup.exe')}
-            title="Download Complete Windows Setup Installer (.EXE) directly to your Downloads folder"
-            style={{
-              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(56, 189, 248, 0.2))',
-              border: '1px solid #38bdf8',
-              boxShadow: '0 0 16px rgba(56, 189, 248, 0.25)',
-            }}
-          >
-            <span className="nav-btn-icon" style={{ color: '#38bdf8', fontSize: '1.15rem' }}>
-              ⬇️
-            </span>
-            <span className="nav-btn-label" style={{ color: '#38bdf8', fontWeight: 800, letterSpacing: '0.5px' }}>
-              DOWNLOAD SETUP
-            </span>
-          </button>
+          {/* DIRECT WINDOWS EXE DOWNLOAD BUTTON (Shown ONLY on Web/Browser when not installed) */}
+          {!isInstalledApp && (
+            <button
+              type="button"
+              className="nav-btn secondary-nav-btn direct-download-setup-btn"
+              onClick={() => {
+                try { localStorage.setItem('lbm_app_downloaded', 'true') } catch {}
+                triggerDirectExeDownload('LBM_Mirror_Setup.exe')
+              }}
+              title="Download Complete Windows Setup Installer (.EXE) directly to your Downloads folder"
+              style={{
+                background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(56, 189, 248, 0.2))',
+                border: '1px solid #38bdf8',
+                boxShadow: '0 0 16px rgba(56, 189, 248, 0.25)',
+              }}
+            >
+              <span className="nav-btn-icon" style={{ color: '#38bdf8', fontSize: '1.15rem' }}>
+                ⬇️
+              </span>
+              <span className="nav-btn-label" style={{ color: '#38bdf8', fontWeight: 800, letterSpacing: '0.5px' }}>
+                DOWNLOAD SETUP
+              </span>
+            </button>
+          )}
 
           <button
             type="button"
             className="nav-btn secondary-nav-btn"
             onClick={() => setIsLandingView(true)}
-            title="Open 3u.com Style Official Website & Download Page"
+            title="Open LBM Mirror Official Website & Download Page"
           >
             <span className="nav-btn-icon">
               🌐
@@ -851,21 +862,6 @@ export default function App() {
             <span className="nav-btn-label">Founder &amp; CEO</span>
           </button>
         </nav>
-
-        {/* Bottom Promo Card (Photo 1 Reference) */}
-        <div className="sidebar-promo-card">
-          <div className="promo-tag-badge">VIP Offer</div>
-          <h4 className="promo-title">Black Friday Deal!</h4>
-          <p className="promo-desc">50% Off Annual Membership</p>
-          <button
-            type="button"
-            className="promo-action-btn"
-            onClick={() => showToast('VIP Mirroring: Ultra HD 60 FPS Unlocked!')}
-          >
-            <span>Purchase &gt;</span>
-          </button>
-          <div className="promo-megaphone-icon">📢</div>
-        </div>
       </aside>
 
       {/* ════════════════════════════════════════════════════════════════════
@@ -912,16 +908,21 @@ export default function App() {
 
           {/* Right: "DOWNLOAD SETUP (.EXE)", User profile & Controls */}
           <div className="header-right-group">
-            {/* Top Bar Direct Setup EXE Download Button */}
-            <button
-              type="button"
-              className="topbar-download-setup-btn"
-              onClick={() => triggerDirectExeDownload('LBM_Mirror_Setup.exe')}
-              title="Download Complete Windows Setup Installer (.EXE) directly into your Downloads folder"
-            >
-              <span className="topbar-dl-icon">⬇️</span>
-              <span className="topbar-dl-label">DOWNLOAD SETUP (.EXE)</span>
-            </button>
+            {/* Top Bar Direct Setup EXE Download Button (Only on Web/Browser when not installed) */}
+            {!isInstalledApp && (
+              <button
+                type="button"
+                className="topbar-download-setup-btn"
+                onClick={() => {
+                  try { localStorage.setItem('lbm_app_downloaded', 'true') } catch {}
+                  triggerDirectExeDownload('LBM_Mirror_Setup.exe')
+                }}
+                title="Download Complete Windows Setup Installer (.EXE) directly into your Downloads folder"
+              >
+                <span className="topbar-dl-icon">⬇️</span>
+                <span className="topbar-dl-label">DOWNLOAD SETUP (.EXE)</span>
+              </button>
+            )}
 
             {currentUser ? (
               <div className="header-user-widget">
@@ -1003,7 +1004,7 @@ export default function App() {
         )}
 
         {/* ── Web Mode Guidance Banner ── */}
-        {!isElectron && (
+        {!isInstalledApp && (
           <div className="web-runtime-banner">
             <div className="web-banner-left">
               <span className="web-pill-icon">🌐</span>
@@ -1129,7 +1130,7 @@ export default function App() {
                     <div className="device-info-pill-bar">
                       <span className="info-label">Device info:</span>
                       <span className="info-item">
-                        <strong>Name:</strong> 3uAirPlayer-{currentHostName}
+                        <strong>Name:</strong> LBMAirPlayer-{currentHostName}
                       </span>
                       <span className="info-separator">|</span>
                       <span className="info-item">
@@ -1598,7 +1599,7 @@ export default function App() {
             </>
           )}
 
-          {/* ═══════════════ WINDOWS VIEW (UltraViewer Mode) ═══════════════ */}
+          {/* ═══════════════ WINDOWS VIEW (Remote Desktop Mode) ═══════════════ */}
           {platform === 'windows' && (
             <WindowsRemoteStage
               currentPin={currentPin}
@@ -1609,7 +1610,7 @@ export default function App() {
                 setActiveConnectedDevice({
                   name: partnerInfo?.name || 'Remote Windows PC',
                   platform: 'Windows',
-                  type: 'UltraViewer Remote Control',
+                  type: 'LBM Remote Control',
                   fps: '60 FPS',
                   resolution: '1920x1080',
                 })
@@ -1763,7 +1764,7 @@ export default function App() {
           status={status}
           quality={quality}
           stats={stats}
-          isUltraViewer={activeConnectedDevice?.type === 'UltraViewer Remote Control' || activeConnectedDevice?.platform === 'Windows'}
+          isRemoteControl={activeConnectedDevice?.type === 'LBM Remote Control' || activeConnectedDevice?.platform === 'Windows'}
           onMinimize={() => setShowViewerModal(false)}
           onDisconnect={() => {
             handleDisconnectDevice()

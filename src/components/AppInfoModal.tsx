@@ -27,7 +27,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({ isOpen, onClose, onO
     setTimeout(() => {
       setUpdateStep('downloading')
       setUpdateProgress(40)
-      setUpdateStatusText('Downloading latest modules: UltraViewer 60 FPS & Viewer Suite...')
+      setUpdateStatusText('Downloading latest modules: Remote Desktop 60 FPS & Viewer Suite...')
     }, 700)
 
     setTimeout(() => {
@@ -139,7 +139,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({ isOpen, onClose, onO
             <div className="app-feature-card">
               <span className="feature-icon">💻</span>
               <div>
-                <strong>Windows UltraViewer</strong>
+                <strong>Windows Remote Desktop</strong>
                 <p>Direct PC-to-PC remote screen mirroring with ID &amp; PIN</p>
               </div>
             </div>

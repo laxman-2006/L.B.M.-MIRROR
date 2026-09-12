@@ -1912,8 +1912,9 @@ body, html {
   height: 100vh;
 }
 
-/* ── Top UltraViewer Mirror Toolbar ── */
-.mirror-toolbar.ultraviewer-toolbar {
+/* ── Top LBM Remote Desktop Mirror Toolbar ── */
+.mirror-toolbar.ultraviewer-toolbar,
+.mirror-toolbar.lbm-remote-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2134,7 +2135,8 @@ body, html {
 }
 
 /* Floating Toast Banner */
-.ultraviewer-toast-banner {
+.ultraviewer-toast-banner,
+.lbm-remote-toast-banner {
   position: absolute;
   top: 66px;
   left: 50%;
@@ -2228,8 +2230,9 @@ body, html {
   }
 }
 
-/* ── UltraViewer Remote Chat Drawer ── */
-.ultraviewer-chat-drawer {
+/* ── LBM Remote Chat Drawer ── */
+.ultraviewer-chat-drawer,
+.lbm-remote-chat-drawer {
   position: absolute;
   top: 0;
   right: 0;
@@ -5540,8 +5543,9 @@ body, html {
   line-height: 1.4;
 }
 
-/* UltraViewer Toolbar Overrides */
-.ultraviewer-toolbar {
+/* Remote Toolbar Overrides */
+.ultraviewer-toolbar,
+.lbm-remote-toolbar {
   background: rgba(15, 23, 42, 0.96) !important;
   border-bottom: 1px solid rgba(59, 130, 246, 0.3) !important;
   display: flex;
@@ -5606,8 +5610,9 @@ body, html {
   position: relative;
 }
 
-/* UltraViewer Remote Chat Drawer */
-.ultraviewer-chat-drawer {
+/* Remote Chat Drawer */
+.ultraviewer-chat-drawer,
+.lbm-remote-chat-drawer {
   position: absolute;
   top: 0;
   right: 0;
@@ -5774,8 +5779,9 @@ body, html {
   cursor: not-allowed;
 }
 
-/* UltraViewer Floating Toast Notification */
-.ultraviewer-toast-banner {
+/* Floating Toast Notification */
+.ultraviewer-toast-banner,
+.lbm-remote-toast-banner {
   position: absolute;
   top: 60px;
   left: 50%;

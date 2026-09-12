@@ -1215,3 +1215,159 @@
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   DYNAMIC 3D HERO ANIMATION & ROTATING FOUNDER SHOWCASE
+══════════════════════════════════════════════════════════════════════════════ */
+
+.dynamic-3d-cyber-mesh {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 900px;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+  background-position: center center;
+  mask-image: radial-gradient(ellipse at 50% 40%, rgba(0, 0, 0, 0.8) 0%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 40%, rgba(0, 0, 0, 0.8) 0%, transparent 80%);
+  pointer-events: none;
+  animation: cyberMeshScroll 20s linear infinite;
+}
+
+@keyframes cyberMeshScroll {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(50px); }
+}
+
+.dynamic-glow-pulse {
+  animation: glowPulse1 3s ease-in-out infinite alternate;
+}
+
+.dynamic-glow-pulse-2 {
+  animation: glowPulse2 4s ease-in-out infinite alternate;
+}
+
+@keyframes glowPulse1 {
+  0% { transform: scale(1) translate(0, 0); opacity: 0.6; }
+  100% { transform: scale(1.15) translate(-20px, 20px); opacity: 0.9; }
+}
+
+@keyframes glowPulse2 {
+  0% { transform: scale(1) translate(0, 0); opacity: 0.5; }
+  100% { transform: scale(1.2) translate(30px, -20px); opacity: 0.85; }
+}
+
+.scene-indicator-dots-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.scene-dot-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.scene-dot-pill.active {
+  background: rgba(15, 23, 42, 0.9);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+  transform: translateY(-2px);
+}
+
+.scene-dot-pill:hover {
+  background: rgba(30, 41, 59, 0.8);
+}
+
+/* 👑 ROTATING 3D FOUNDER EXECUTIVE SHOWCASE CARD */
+.founder-rotating-3d-badge {
+  position: absolute;
+  bottom: -48px;
+  right: -24px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 58, 138, 0.9) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 20px;
+  padding: 10px 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 25px rgba(56, 189, 248, 0.3);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 25;
+  transform-style: preserve-3d;
+  cursor: pointer;
+}
+
+.founder-rotating-3d-badge.spotlight-active {
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 45px rgba(56, 189, 248, 0.8), 0 0 20px rgba(245, 158, 11, 0.6);
+  border-color: #38bdf8;
+  animation: founderSpotlightSweep 1.8s ease;
+}
+
+@keyframes founderSpotlightSweep {
+  0% { transform: perspective(1000px) scale(1); }
+  50% { transform: perspective(1000px) scale(1.1) translateY(-6px); }
+  100% { transform: perspective(1000px) scale(1); }
+}
+
+.founder-badge-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.founder-badge-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #38bdf8;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.5);
+}
+
+.founder-badge-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.founder-badge-meta .badge-tag {
+  font-size: 0.65rem;
+  color: #fbbf24;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.founder-badge-meta strong {
+  font-size: 0.9rem;
+  color: #ffffff;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.founder-badge-meta small {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+@media (max-width: 960px) {
+  .founder-rotating-3d-badge {
+    position: relative;
+    bottom: auto;
+    right: auto;
+    margin-top: 20px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+

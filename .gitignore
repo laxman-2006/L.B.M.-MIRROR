@@ -27,3 +27,5 @@ scratch
 *.njsproj
 *.sln
 *.sw?
+*.exe
+server/downloads/*.exe

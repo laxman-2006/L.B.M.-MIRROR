@@ -262,7 +262,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                     <div className="win-step-card">
                       <span className="step-badge">3</span>
                       <strong>Control</strong>
-                      <p>ऐप खोलें और Partner ID डालकर UltraViewer की तरह स्क्रीन चलाएं!</p>
+                      <p>ऐप खोलें और Partner ID डालकर रिमोट स्क्रीन आसानी से चलाएं!</p>
                     </div>
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import logoImg from '../assets/logo.png'
 import { useAppSettings } from '../context/AppSettingsContext'
 import { triggerDirectExeDownload } from '../utils/directDownload'
@@ -8,10 +8,61 @@ interface LandingDownloadPageProps {
   onOpenApp: () => void
 }
 
+const HERO_3D_SCENES = [
+  {
+    id: 'mobile-mirror',
+    title: 'Mobile ➔ PC 60 FPS Wireless Mirror',
+    subtitle: 'Stream smartphone screen to PC with < 15ms latency and full stereo audio sync',
+    badge: '⚡ 60 FPS MOBILE MIRROR',
+    glowColor: '#38bdf8',
+    gradient: 'radial-gradient(circle at 80% 20%, rgba(56, 189, 248, 0.3) 0%, rgba(14, 165, 233, 0.1) 50%, transparent 80%)',
+    icon: '📱',
+    status: 'Mobile Mirroring Active',
+    speed: '< 15 ms Latency',
+    desc: 'Connect Android & iPhone wirelessly via Wi-Fi 6 or instant Type-C USB cable.',
+  },
+  {
+    id: 'remote-pc',
+    title: 'PC ➔ PC Remote Desktop Control',
+    subtitle: '1-Click Partner ID connection with full mouse, keyboard, and shortcut sync',
+    badge: '🖱️ ZERO-DELAY REMOTE DESKTOP',
+    glowColor: '#a855f7',
+    gradient: 'radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.3) 0%, rgba(139, 92, 246, 0.1) 50%, transparent 80%)',
+    icon: '💻',
+    status: 'LBM Remote Desktop Active',
+    speed: '60 FPS Direct P2P',
+    desc: 'Control distant computers across different cities and networks without port-forwarding.',
+  },
+  {
+    id: 'gaming-cast',
+    title: 'High-FPS Mobile Gaming on 4K Monitor',
+    subtitle: 'Play PUBG, Free Fire & action games on big screen with zero stutter',
+    badge: '🎮 4K GAMING STREAM',
+    glowColor: '#10b981',
+    gradient: 'radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.1) 50%, transparent 80%)',
+    icon: '🎯',
+    status: 'Gaming Mode Live',
+    speed: '4K 60Hz Ultra HD',
+    desc: 'Hardware NVENC GPU acceleration for zero-drop high-octane gaming sessions.',
+  },
+  {
+    id: 'enterprise-suite',
+    title: 'Universal Multi-Device Screen Suite',
+    subtitle: 'Sync iPhone, iPad, Android & Windows simultaneously on 1 dashboard',
+    badge: '🌐 ALL-IN-ONE SYSTEM',
+    glowColor: '#f59e0b',
+    gradient: 'radial-gradient(circle at 80% 20%, rgba(245, 158, 11, 0.3) 0%, rgba(217, 119, 6, 0.1) 50%, transparent 80%)',
+    icon: '🏢',
+    status: 'Multi-Cast Connected',
+    speed: '100% Free & Safe',
+    desc: '31 Enterprise preview modules for PDF, Word, CAD, and real-time screen audits.',
+  },
+]
+
 const FEATURES_24 = [
   { icon: '⚡', tag: '60 FPS', title: '60 FPS Ultra-Fast Engine', desc: 'Hardware-accelerated pipeline with less than 15ms latency for lag-free real-time mirroring.' },
   { icon: '🖥️', tag: '4K RETINA', title: '4K Ultra HD Display', desc: 'Crisp, pixel-perfect rendering with adaptive bitrate and high dynamic range color fidelity.' },
-  { icon: '🖱️', tag: 'REMOTE CONTROL', title: 'AnyDesk & UltraViewer Control', desc: 'Full mouse click, drag, scroll, and keyboard input across distant PCs anywhere in the world.' },
+  { icon: '🖱️', tag: 'REMOTE CONTROL', title: 'AnyDesk & Remote Desktop Control', desc: 'Full mouse click, drag, scroll, and keyboard input across distant PCs anywhere in the world.' },
   { icon: '🔊', tag: 'SYNC AUDIO', title: 'Bi-Directional Sound Loopback', desc: 'Zero-latency system audio and microphone passthrough with studio-grade clarity.' },
   { icon: '🔌', tag: 'NO WI-FI', title: 'Plug & Play USB Mirroring', desc: 'Connect Android directly via Type-C USB cable for instant 60 FPS video with zero Wi-Fi required.' },
   { icon: '📡', tag: 'AIRPLAY 2', title: 'Native Apple AirPlay Receiver', desc: 'Zero-install screen mirroring for iPhone, iPad, and Mac using native Bonjour broadcast protocols.' },
@@ -41,8 +92,33 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [activeDemoTab, setActiveDemoTab] = useState<'mobile' | 'pc' | 'apple'>('mobile')
 
+  // Dynamic 3D Background scene that smoothly switches every 2.8s
+  const [sceneIndex, setSceneIndex] = useState<number>(0)
+  // Rotating Founder Executive Poster that spotlights every 16 seconds
+  const [founderRotateAngle, setFounderRotateAngle] = useState<number>(0)
+  const [isFounderSpotlight, setIsFounderSpotlight] = useState<boolean>(false)
+
   const activeLogo = settings.appLogo || logoImg
   const shareableDownloadLink = 'https://l-b-m-mirror.vercel.app/?download=direct'
+  const currentScene = HERO_3D_SCENES[sceneIndex]
+
+  // Dynamic 3D Scene Cycle (2.8s)
+  useEffect(() => {
+    const sceneTimer = setInterval(() => {
+      setSceneIndex((prev) => (prev + 1) % HERO_3D_SCENES.length)
+    }, 2800)
+    return () => clearInterval(sceneTimer)
+  }, [])
+
+  // Founder Executive Poster Rotation Animation (every 16s)
+  useEffect(() => {
+    const founderTimer = setInterval(() => {
+      setIsFounderSpotlight(true)
+      setFounderRotateAngle((prev) => prev + 360)
+      setTimeout(() => setIsFounderSpotlight(false), 4500)
+    }, 16000)
+    return () => clearInterval(founderTimer)
+  }, [])
 
   const showToast = (msg: string) => {
     setToastMessage(msg)
@@ -62,13 +138,35 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
   }
 
   const whatsappShareText = encodeURIComponent(
-    `🚀 Download LBM Mirror Setup (.EXE) - Free 60 FPS Screen Mirroring & UltraViewer Remote Desktop for Windows:\n${shareableDownloadLink}`
+    `🚀 Download LBM Mirror Setup (.EXE) - Free 60 FPS Screen Mirroring & High-Speed Remote Desktop for Windows:\n${shareableDownloadLink}`
   )
 
   return (
-    <div className="landing-page-container">
-      <div className="landing-bg-glow-1" />
-      <div className="landing-bg-glow-2" />
+    <div
+      className="landing-page-container dynamic-3d-bg"
+      style={{
+        background: currentScene.gradient,
+        transition: 'background 1s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+    >
+      {/* 3D Animated Cyber Glow Elements */}
+      <div
+        className="landing-bg-glow-1 dynamic-glow-pulse"
+        style={{
+          background: `radial-gradient(circle, ${currentScene.glowColor}40 0%, transparent 70%)`,
+          transition: 'background 1.2s ease',
+        }}
+      />
+      <div
+        className="landing-bg-glow-2 dynamic-glow-pulse-2"
+        style={{
+          background: `radial-gradient(circle, ${currentScene.glowColor}25 0%, transparent 70%)`,
+          transition: 'background 1.2s ease',
+        }}
+      />
+
+      {/* Floating 3D Tech Particle Mesh */}
+      <div className="dynamic-3d-cyber-mesh" />
 
       {/* Toast Feedback */}
       {toastMessage && (
@@ -94,7 +192,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
         </div>
       )}
 
-      {/* ─── 1. Top Header Navigation Bar (3u.com style) ─── */}
+      {/* ─── 1. Top Header Navigation Bar ─── */}
       <header className="landing-nav-bar">
         <div className="landing-brand" onClick={onOpenApp}>
           <img
@@ -116,7 +214,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
             Home
           </a>
           <a href="#windows" className="landing-nav-link">
-            UltraViewer PC
+            Remote PC Control
           </a>
           <a href="#ios" className="landing-nav-link">
             iOS AirPlay
@@ -126,6 +224,9 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
           </a>
           <a href="#viewer" className="landing-nav-link">
             Viewer Suite
+          </a>
+          <a href="#founder" className="landing-nav-link">
+            Founder &amp; CEO
           </a>
           <a href="#guides" className="landing-nav-link">
             Tutorials
@@ -142,28 +243,46 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
         </div>
       </header>
 
-      {/* ─── 2. Hero Section (3u.com Style) ─── */}
+      {/* ─── 2. Hero Section with Dynamic 3D Scene Animation ─── */}
       <section className="landing-hero" id="hero">
         <div className="landing-hero-left">
-          <div className="landing-pill-tag">
-            <span>★</span>
-            <span>Windows 11 / 10 / 8 / 7 • 64-Bit Desktop Release (v1.2.0)</span>
+          {/* Dynamic Scene Pill */}
+          <div
+            className="landing-pill-tag dynamic-pill-glow"
+            style={{
+              borderColor: currentScene.glowColor,
+              color: currentScene.glowColor,
+              boxShadow: `0 0 16px ${currentScene.glowColor}40`,
+            }}
+          >
+            <span>{currentScene.icon}</span>
+            <span>{currentScene.badge}</span>
+            <span style={{ color: '#94a3b8' }}>•</span>
+            <span>Windows 11 / 10 / 8 / 7 • 64-Bit Desktop Release</span>
           </div>
 
           <h2 className="hero-title-main">
             New Verification Report
-            <span className="hero-title-highlight">New Flashing Experience</span>
+            <span
+              className="hero-title-highlight dynamic-glow-text"
+              style={{
+                color: currentScene.glowColor,
+                textShadow: `0 0 24px ${currentScene.glowColor}60`,
+              }}
+            >
+              {currentScene.title}
+            </span>
           </h2>
 
           <p className="hero-subtitle">
-            <strong>Smarter, More Comprehensive &amp; Zero-Lag:</strong> LBM Mirror PC Client Redesigned:
-            Control any remote Windows PC across any network (UltraViewer Mode), mirror iPhone with Apple AirPlay 60 FPS,
+            <strong>Smarter, More Comprehensive &amp; Zero-Lag:</strong> {currentScene.subtitle}.
+            Control any remote Windows PC across any network, mirror iPhone with Apple AirPlay 60 FPS,
             and connect Android via high-speed direct USB cable.
           </p>
 
           <div className="hero-cta-row">
             <button type="button" className="hero-download-pill-btn" onClick={handleDownload}>
-              <span>⬇️ Download for Windows</span>
+              <span>⬇️ Download for Windows (.EXE)</span>
             </button>
 
             <button type="button" className="hero-secondary-cta" onClick={onOpenApp}>
@@ -178,28 +297,60 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
             <span>•</span>
             <span>✓ 100% Free &amp; Safe</span>
           </div>
+
+          {/* Active 3D Scene Carousel Indicators (Cycles every 2.8s) */}
+          <div className="scene-indicator-dots-row">
+            {HERO_3D_SCENES.map((sc, idx) => (
+              <button
+                key={sc.id}
+                type="button"
+                className={`scene-dot-pill ${idx === sceneIndex ? 'active' : ''}`}
+                style={{
+                  borderColor: idx === sceneIndex ? sc.glowColor : 'rgba(255,255,255,0.2)',
+                  color: idx === sceneIndex ? sc.glowColor : '#94a3b8',
+                }}
+                onClick={() => setSceneIndex(idx)}
+              >
+                <span>{sc.icon}</span>
+                <span>{sc.id.replace('-', ' ').toUpperCase()}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Hero Right: 3D Isometric Glass Cards (Inspired by 3u.com) */}
+        {/* Hero Right: 3D Isometric Glass Cards + Rotating Founder Executive Showcase */}
         <div className="landing-hero-right">
           <div className="isometric-board-container">
-            <div className="iso-main-base-card">
+            {/* Dynamic 3D Main Base Card */}
+            <div
+              className="iso-main-base-card 3d-card-tilt"
+              style={{
+                borderColor: `${currentScene.glowColor}50`,
+                boxShadow: `0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px ${currentScene.glowColor}25`,
+              }}
+            >
               <div className="iso-header-badge">
                 <div className="iso-brand-pill">
-                  <span>📱</span>
-                  <span>LBM Mirror PC Client</span>
+                  <span>{currentScene.icon}</span>
+                  <span>{currentScene.title}</span>
                 </div>
-                <span style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: 700 }}>● 60 FPS LIVE</span>
+                <span style={{ fontSize: '0.75rem', color: currentScene.glowColor, fontWeight: 800 }}>
+                  ● 60 FPS LIVE
+                </span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, margin: '20px 0' }}>
                 <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: 10, textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>REMOTE CONTROL</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 800, color: '#38bdf8' }}>UltraViewer Active</div>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>ACTIVE MODE</div>
+                  <div style={{ fontSize: '0.92rem', fontWeight: 800, color: currentScene.glowColor }}>
+                    {currentScene.status}
+                  </div>
                 </div>
                 <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: 10, textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>LATENCY</div>
-                  <div style={{ fontSize: '1rem', fontWeight: 800, color: '#4ade80' }}>&lt; 15 ms (Direct)</div>
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>PERFORMANCE</div>
+                  <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#4ade80' }}>
+                    {currentScene.speed}
+                  </div>
                 </div>
               </div>
 
@@ -222,7 +373,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
               <span style={{ fontSize: '1.2rem' }}>💻</span>
               <div>
                 <strong style={{ fontSize: '0.8rem', display: 'block', color: '#fff' }}>Windows Remote PC</strong>
-                <span style={{ fontSize: '0.72rem', color: '#38bdf8', fontWeight: 700 }}>UltraViewer Connected</span>
+                <span style={{ fontSize: '0.72rem', color: '#38bdf8', fontWeight: 700 }}>Remote PC Connected</span>
               </div>
             </div>
 
@@ -231,6 +382,32 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
               <div>
                 <strong style={{ fontSize: '0.8rem', display: 'block', color: '#fff' }}>Enterprise Viewer</strong>
                 <span style={{ fontSize: '0.72rem', color: '#f59e0b', fontWeight: 700 }}>31 Feature Suite</span>
+              </div>
+            </div>
+
+            {/* 👑 ROTATING 3D FOUNDER EXECUTIVE SHOWCASE CARD (Rotates every 16s smoothly) */}
+            <div
+              className={`founder-rotating-3d-badge ${isFounderSpotlight ? 'spotlight-active' : ''}`}
+              style={{
+                transform: `perspective(1000px) rotateY(${founderRotateAngle}deg)`,
+                transition: 'transform 1.8s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              }}
+              title="Laxman Choudhary — Founder & CEO LBM Mirror"
+            >
+              <div className="founder-badge-inner">
+                <img
+                  src="/founder_ceo_showcase.jpg"
+                  alt="Laxman Choudhary Founder & CEO"
+                  className="founder-badge-thumb"
+                  onError={(e) => {
+                    ;(e.currentTarget as HTMLImageElement).src = logoImg
+                  }}
+                />
+                <div className="founder-badge-meta">
+                  <span className="badge-tag">👑 FOUNDER &amp; CEO</span>
+                  <strong>Laxman Choudhary</strong>
+                  <small>LBM Mirror Private Limited</small>
+                </div>
               </div>
             </div>
           </div>
@@ -263,7 +440,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
         </div>
       </section>
 
-      {/* ─── 4. 3D Interactive Device Mirroring Animation Stage (User Requirement) ─── */}
+      {/* ─── 4. 3D Interactive Device Mirroring Animation Stage ─── */}
       <section className="landing-3d-showcase-section">
         <div className="showcase-header">
           <div className="showcase-badge-pill">
@@ -288,7 +465,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
               className={`showcase-tab-btn ${activeDemoTab === 'pc' ? 'active' : ''}`}
               onClick={() => setActiveDemoTab('pc')}
             >
-              <span>💻 PC ➔ PC Remote Desktop (AnyDesk &amp; UltraViewer)</span>
+              <span>💻 PC ➔ PC Remote Desktop (AnyDesk &amp; LBM PC Control)</span>
             </button>
             <button
               type="button"
@@ -361,7 +538,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
         </div>
       </section>
 
-      {/* ─── 5. 24-Feature Extensive Gallery Grid (User Requirement) ─── */}
+      {/* ─── 5. 24-Feature Extensive Gallery Grid ─── */}
       <section className="features-24-section">
         <div className="showcase-header">
           <div className="showcase-badge-pill">
@@ -388,8 +565,8 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
         </div>
       </section>
 
-      {/* ─── 6. Founder & CEO Grand Executive Showcase (Photo Requested by User) ─── */}
-      <section className="founder-grand-section">
+      {/* ─── 6. Founder & CEO Grand Executive Showcase ─── */}
+      <section className="founder-grand-section" id="founder">
         <div className="founder-grand-card">
           <div className="founder-grand-header">
             <div className="founder-lead-left">
@@ -413,8 +590,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
               alt="Laxman Choudhary, Founder & CEO, LBM Mirror Private Limited"
               className="founder-showcase-image"
               onError={(e) => {
-                // Fallback if needed
-                (e.currentTarget as HTMLImageElement).src = '/logo.png'
+                ;(e.currentTarget as HTMLImageElement).src = '/logo.png'
               }}
             />
           </div>
@@ -438,7 +614,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
         </div>
       </section>
 
-      {/* ─── 7. Step-by-Step Connection Guides for ALL Platforms (Requested by User) ─── */}
+      {/* ─── 7. Step-by-Step Connection Guides for ALL Platforms ─── */}
       <section className="landing-guides-section" id="guides">
         <div className="guides-section-header">
           <h2>Complete Connection &amp; Control Guide</h2>
@@ -446,11 +622,11 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
         </div>
 
         <div className="guides-grid">
-          {/* Card 1: Windows UltraViewer Remote PC */}
+          {/* Card 1: Windows Remote PC */}
           <div className="guide-card" id="windows">
             <div className="guide-card-top">
               <span className="guide-platform-badge badge-win">💻 Windows Remote PC</span>
-              <span style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 700 }}>UltraViewer Mode</span>
+              <span style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 700 }}>Remote Desktop Mode</span>
             </div>
             <h3>Remote PC Control (Distant Computers)</h3>
             <p className="guide-card-desc">
@@ -569,7 +745,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
         </div>
       </section>
 
-      {/* ─── 5. Footer Section ─── */}
+      {/* ─── 8. Footer Section ─── */}
       <footer className="landing-footer">
         <div className="landing-footer-inner">
           <div className="footer-credits">

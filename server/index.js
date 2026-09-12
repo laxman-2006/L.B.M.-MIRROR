@@ -39,7 +39,7 @@ const sessions = new Map()
 // socketId -> sessionId (host sessions)
 const hostSessions = new Map()
 
-// UltraViewer Remote Control Registry
+// LBM Remote Desktop Control Registry
 // cleanHostId (e.g. '839201') -> { socketId, passcode, hostName, lastSeen }
 const uvHosts = new Map()
 // socketId -> cleanHostId
@@ -487,8 +487,8 @@ io.on('connection', (socket) => {
     socket.to(sessionId).emit('webrtc:ice', { candidate })
   })
 
-  // ─── UltraViewer Remote PC Direct Signaling ────────────────────────
-  socket.on('ultraviewer:host:register', ({ hostId, passcode, hostName }) => {
+  // ─── LBM Remote Desktop Direct Signaling ────────────────────────
+  const registerHostHandler = ({ hostId, passcode, hostName }) => {
     const cleanId = String(hostId || '').replace(/\s+/g, '').trim()
     if (!cleanId) return
     const room = `uv_${cleanId}`
@@ -500,75 +500,97 @@ io.on('connection', (socket) => {
       lastSeen: Date.now(),
     })
     uvSocketToHost.set(socket.id, cleanId)
-    console.log(`[UltraViewer] Host registered: ID=${cleanId} (Room: ${room})`)
+    console.log(`[LBM Remote Desktop] Host registered: ID=${cleanId} (Room: ${room})`)
+    socket.emit('lbm_remote:registered', { success: true, hostId: cleanId })
     socket.emit('ultraviewer:registered', { success: true, hostId: cleanId })
-  })
+  }
+  socket.on('lbm_remote:host:register', registerHostHandler)
+  socket.on('ultraviewer:host:register', registerHostHandler)
 
-  socket.on('ultraviewer:client:connect', ({ partnerId, passcode, clientName }) => {
+  const clientConnectHandler = ({ partnerId, passcode, clientName }) => {
     const cleanId = String(partnerId || '').replace(/\s+/g, '').trim()
-    console.log(`[UltraViewer] Client requesting connection to Partner ID: ${cleanId}`)
+    console.log(`[LBM Remote Desktop] Client requesting connection to Partner ID: ${cleanId}`)
     const host = uvHosts.get(cleanId)
 
     if (!host) {
-      socket.emit('ultraviewer:error', {
-        message: `Partner PC (${cleanId}) ऑफ़लाइन है या शेयरिंग चालू नहीं है। कृपया Partner PC पर चेक करें।`,
-      })
+      const errMsg = `Partner PC (${cleanId}) ऑफ़लाइन है या शेयरिंग चालू नहीं है। कृपया Partner PC पर चेक करें।`
+      socket.emit('lbm_remote:error', { message: errMsg })
+      socket.emit('ultraviewer:error', { message: errMsg })
       return
     }
 
     const expectedPass = host.passcode
     const givenPass = String(passcode || '').trim()
     if (expectedPass && givenPass !== expectedPass) {
-      socket.emit('ultraviewer:error', {
-        message: 'गलत पासवर्ड (Invalid Passcode). कृपया Partner PC पर प्रदर्शित पासवर्ड दर्ज करें।',
-      })
+      const errMsg = 'गलत पासवर्ड (Invalid Passcode). कृपया Partner PC पर प्रदर्शित पासवर्ड दर्ज करें।'
+      socket.emit('lbm_remote:error', { message: errMsg })
+      socket.emit('ultraviewer:error', { message: errMsg })
       return
     }
 
     const room = `uv_${cleanId}`
     socket.join(room)
-    socket.emit('ultraviewer:auth_success', {
+    const authPayload = {
       hostId: cleanId,
       hostName: host.hostName,
-    })
-    io.to(host.socketId).emit('ultraviewer:incoming_partner', {
+    }
+    socket.emit('lbm_remote:auth_success', authPayload)
+    socket.emit('ultraviewer:auth_success', authPayload)
+
+    const incomingPayload = {
       clientId: socket.id,
       clientName: clientName || 'Remote Operator',
-    })
-    console.log(`[UltraViewer] Partner authenticated successfully into room ${room}`)
-  })
+    }
+    io.to(host.socketId).emit('lbm_remote:incoming_partner', incomingPayload)
+    io.to(host.socketId).emit('ultraviewer:incoming_partner', incomingPayload)
+    console.log(`[LBM Remote Desktop] Partner authenticated successfully into room ${room}`)
+  }
+  socket.on('lbm_remote:client:connect', clientConnectHandler)
+  socket.on('ultraviewer:client:connect', clientConnectHandler)
 
-  // Relay UltraViewer WebRTC Offer/Answer/ICE
-  socket.on('ultraviewer:signal', ({ targetRoom, signal, type }) => {
+  // Relay WebRTC Offer/Answer/ICE
+  const signalHandler = ({ targetRoom, signal, type }) => {
     const room = targetRoom || (socket.rooms ? [...socket.rooms].find(r => r.startsWith('uv_')) : null)
     if (room) {
+      socket.to(room).emit('lbm_remote:signal', { signal, type, senderId: socket.id })
       socket.to(room).emit('ultraviewer:signal', { signal, type, senderId: socket.id })
     }
-  })
+  }
+  socket.on('lbm_remote:signal', signalHandler)
+  socket.on('ultraviewer:signal', signalHandler)
 
-  // Relay UltraViewer Remote Mouse/Keyboard Input
-  socket.on('ultraviewer:input', ({ targetRoom, event }) => {
+  // Relay Remote Mouse/Keyboard Input
+  const inputHandler = ({ targetRoom, event }) => {
     const room = targetRoom || (socket.rooms ? [...socket.rooms].find(r => r.startsWith('uv_')) : null)
     if (room && event) {
+      socket.to(room).emit('lbm_remote:input', { event })
       socket.to(room).emit('ultraviewer:input', { event })
     }
-  })
+  }
+  socket.on('lbm_remote:input', inputHandler)
+  socket.on('ultraviewer:input', inputHandler)
 
-  // Relay UltraViewer Live Chat
-  socket.on('ultraviewer:chat', ({ targetRoom, message }) => {
+  // Relay Live Chat
+  const chatHandler = ({ targetRoom, message }) => {
     const room = targetRoom || (socket.rooms ? [...socket.rooms].find(r => r.startsWith('uv_')) : null)
     if (room && message) {
+      socket.to(room).emit('lbm_remote:chat', { message })
       socket.to(room).emit('ultraviewer:chat', { message })
     }
-  })
+  }
+  socket.on('lbm_remote:chat', chatHandler)
+  socket.on('ultraviewer:chat', chatHandler)
 
-  // Relay UltraViewer Clipboard Sync
-  socket.on('ultraviewer:clipboard', ({ targetRoom, text }) => {
+  // Relay Clipboard Sync
+  const clipboardHandler = ({ targetRoom, text }) => {
     const room = targetRoom || (socket.rooms ? [...socket.rooms].find(r => r.startsWith('uv_')) : null)
     if (room && text) {
+      socket.to(room).emit('lbm_remote:clipboard', { text })
       socket.to(room).emit('ultraviewer:clipboard', { text })
     }
-  })
+  }
+  socket.on('lbm_remote:clipboard', clipboardHandler)
+  socket.on('ultraviewer:clipboard', clipboardHandler)
 
   // ─── Cleanup on disconnect ────────────────────────────────────────
 
@@ -577,8 +599,9 @@ io.on('connection', (socket) => {
     if (uvId) {
       uvHosts.delete(uvId)
       uvSocketToHost.delete(socket.id)
+      io.to(`uv_${uvId}`).emit('lbm_remote:partner_disconnected', { hostId: uvId })
       io.to(`uv_${uvId}`).emit('ultraviewer:partner_disconnected', { hostId: uvId })
-      console.log(`[UltraViewer] Host disconnected: ID=${uvId}`)
+      console.log(`[LBM Remote Desktop] Host disconnected: ID=${uvId}`)
     }
 
     const sessionId = hostSessions.get(socket.id)

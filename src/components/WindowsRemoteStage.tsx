@@ -7,7 +7,7 @@ interface WindowsRemoteStageProps {
   currentPin: string
   currentSessionId: string
   onRequireAuth: (action: () => void, message?: string) => void
-  onRemoteStreamReceived: (stream: MediaStream, partnerInfo?: { name: string; id: string; isUltraViewer?: boolean }) => void
+  onRemoteStreamReceived: (stream: MediaStream, partnerInfo?: { name: string; id: string; isRemoteControl?: boolean }) => void
   showToast: (msg: string) => void
 }
 
@@ -208,7 +208,7 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
         onRemoteStreamReceived(stream, {
           name: `Remote PC (${cleanPartnerId})`,
           id: cleanPartnerId,
-          isUltraViewer: true,
+          isRemoteControl: true,
         })
         showToast('🟢 Connected to Remote PC screen with Full Mouse & Keyboard Control!')
       })
@@ -256,7 +256,7 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
         <div className="win-header-left">
           <div className="win-title-row">
             <span className="win-badge-icon">💻</span>
-            <h2 className="win-stage-title">UltraViewer Remote PC Mirroring</h2>
+            <h2 className="win-stage-title">LBM Remote PC Mirroring</h2>
             <span className="win-mode-tag">ANY NETWORK • 60 FPS • FULL CONTROL</span>
           </div>
           <p className="win-stage-subtitle">
@@ -296,7 +296,7 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
         </div>
       )}
 
-      {/* 2-Column UltraViewer Remote Control Grid */}
+      {/* 2-Column LBM Remote Desktop Grid */}
       <div className="win-remote-grid">
         {/* ══════════ LEFT COLUMN: Allow Remote Control (Host) ══════════ */}
         <div className="win-remote-card host-card">
@@ -401,7 +401,7 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
                   ? 'Screen stream active & ready for remote control'
                   : (isHostReady
                     ? 'Ready to connect (Secure P2P & Cloud Active)'
-                    : 'Initializing UltraViewer connection engine...')}
+                    : 'Initializing LBM Remote connection engine...')}
               </span>
             </div>
 

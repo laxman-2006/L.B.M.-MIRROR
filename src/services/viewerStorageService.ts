@@ -418,7 +418,7 @@ const INITIAL_FILES: FileItem[] = [
     tabularData: {
       headers: ['Feedback ID', 'Customer Name', 'Platform', 'Rating (1-5)', 'Reported Latency', 'Comment / Request'],
       rows: [
-        ['FB-101', 'Rajesh Sharma', 'Windows 11', '5 / 5', '18 ms', 'UltraViewer mode connected in 1 click across city. Super smooth!'],
+        ['FB-101', 'Rajesh Sharma', 'Windows 11', '5 / 5', '18 ms', 'LBM Remote Desktop mode connected in 1 click across city. Super smooth!'],
         ['FB-102', 'Elena Rostova', 'Windows 10', '5 / 5', '24 ms', 'Mouse drag and keyboard typing works without any lag.'],
         ['FB-103', 'Vikram Patel', 'Windows 11', '4 / 5', '32 ms', 'Love the Win and Alt+Tab shortcuts bar.'],
         ['FB-104', 'David Miller', 'Windows 11', '5 / 5', '19 ms', 'Connected from home Wi-Fi to office hotspot seamlessly.'],
