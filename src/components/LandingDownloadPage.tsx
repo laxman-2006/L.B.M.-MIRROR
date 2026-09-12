@@ -108,8 +108,8 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
           <button type="button" className="btn-launch-web" onClick={onOpenApp} title="Open in Browser without Installing">
             <span>🌐 Open Web App</span>
           </button>
-          <button type="button" className="btn-header-download" onClick={handleDownload} title="Download Windows Setup .exe">
-            <span>⬇️ Download (.exe)</span>
+          <button type="button" className="btn-header-download" onClick={handleDownload} title="Directly Download Complete Windows Setup .exe to Downloads folder">
+            <span>⬇️ DOWNLOAD SETUP (.EXE)</span>
           </button>
         </div>
       </header>

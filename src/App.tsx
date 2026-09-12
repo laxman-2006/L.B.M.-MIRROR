@@ -915,8 +915,19 @@ export default function App() {
             </button>
           </div>
 
-          {/* Right: "Your ID / Log in" profile widget + Window controls */}
+          {/* Right: "DOWNLOAD SETUP (.EXE)", User profile & Controls */}
           <div className="header-right-group">
+            {/* Top Bar Direct Setup EXE Download Button */}
+            <button
+              type="button"
+              className="topbar-download-setup-btn"
+              onClick={() => triggerDirectExeDownload('LBM_Mirror_Setup.exe')}
+              title="Download Complete Windows Setup Installer (.EXE) directly into your Downloads folder"
+            >
+              <span className="topbar-dl-icon">⬇️</span>
+              <span className="topbar-dl-label">DOWNLOAD SETUP (.EXE)</span>
+            </button>
+
             {currentUser ? (
               <div className="header-user-widget">
                 <div className="user-avatar-circle glow-avatar">
