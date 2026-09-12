@@ -227,9 +227,11 @@ const sendWindowsInstaller = (req, res, customFileName) => {
   if (exePath) {
     const filename = customFileName || 'LBM_Mirror_Setup.exe'
     const stat = fs.statSync(exePath)
-    res.setHeader('Content-Type', 'application/vnd.microsoft.portable-executable')
+    res.setHeader('Content-Type', 'application/octet-stream')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
     res.setHeader('Content-Length', stat.size)
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
     return res.download(exePath, filename)
   }
   res.status(404).send('Windows setup installer not found on server.')
