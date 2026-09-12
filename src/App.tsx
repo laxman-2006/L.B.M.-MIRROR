@@ -12,6 +12,7 @@ import { MobileSenderView } from './components/MobileSenderView'
 import { AppInfoModal } from './components/AppInfoModal'
 import { WindowsRemoteStage } from './components/WindowsRemoteStage'
 import { ViewerSystem } from './components/viewer/ViewerSystem'
+import { LandingDownloadPage } from './components/LandingDownloadPage'
 import { useAppSettings } from './context/AppSettingsContext'
 import { LaptopPhoneIllustration, SleepingDeviceIllustration } from './components/IllustrationSVGs'
 import { isMobileBrowser, getJoinUrl } from './utils/env'
@@ -70,7 +71,19 @@ export default function App() {
     setExpandedCards((prev) => ({ ...prev, [card]: !prev[card] }))
   }
 
-  // ─── Modals State ──────────────────────────────────────────────────────────
+  // ─── Modals & Landing View State ──────────────────────────────────────────
+  const [isLandingView, setIsLandingView] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      return (
+        params.get('page') === 'download' ||
+        params.get('download') === 'windows' ||
+        params.get('download') === 'true' ||
+        window.location.pathname === '/download'
+      )
+    }
+    return false
+  })
   const [showAuthDialog, setShowAuthDialog] = useState<boolean>(false)
   const [authMode, setAuthMode] = useState<'signup' | 'login'>('login')
   const [authGateMessage, setAuthGateMessage] = useState<string>('')
@@ -642,6 +655,11 @@ export default function App() {
   const currentHostIp = networkInfo?.ip || '192.168.137.167'
   const currentHostName = networkInfo?.hostname || 'LAXMAN'
 
+  // If Landing Page is active (via ?page=download, ?download=windows, /download or sidebar trigger)
+  if (isLandingView) {
+    return <LandingDownloadPage onOpenApp={() => setIsLandingView(false)} />
+  }
+
   // If Admin View is active, render full-featured Admin Panel
   if (isAdminView) {
     return (
@@ -749,6 +767,18 @@ export default function App() {
           </button>
 
           <div className="nav-menu-divider" />
+
+          <button
+            type="button"
+            className="nav-btn secondary-nav-btn"
+            onClick={() => setIsLandingView(true)}
+            title="Open 3u.com Style Official Website & Download Page"
+          >
+            <span className="nav-btn-icon">
+              🌐
+            </span>
+            <span className="nav-btn-label">Website &amp; Download</span>
+          </button>
 
           <button
             type="button"
