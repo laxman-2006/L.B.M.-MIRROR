@@ -11,239 +11,260 @@ interface LandingDownloadPageProps {
 
 const HERO_3D_SCENES = [
   {
-    id: 'mobile-mirror',
-    title: 'Mobile ➔ PC 60 FPS Wireless Mirroring',
-    subtitle: 'Stream smartphone screen to PC laptop monitor with real-time stereo audio sync and zero lag',
-    badge: '📱 MOBILE TO PC MIRRORING',
-    glowColor: '#38bdf8',
-    gradient: 'radial-gradient(circle at 80% 20%, rgba(56, 189, 248, 0.3) 0%, rgba(14, 165, 233, 0.1) 50%, transparent 80%)',
-    icon: '📱',
-    status: 'Mobile Screen Mirrored (60 FPS)',
-    speed: '< 15 ms Ultra-Low Latency',
-    desc: 'Connect Android & iPhone wirelessly via Wi-Fi 6 or instant Type-C USB cable.',
+    id: 'mobile-gaming',
+    title: 'Mobile ➔ PC Real-Time 60 FPS Gaming Mirror',
+    subtitle: 'Play mobile games like PUBG & Free Fire on your PC monitor in 4K 60 FPS with zero lag, instant audio sync & direct mouse/keyboard keymapping',
+    badge: '🎮 REAL-TIME 60 FPS MOBILE GAMING MIRROR',
+    glowColor: '#10b981',
+    accentColor: '#34d399',
+    image: '/hero_bg_mobile_gaming.jpg',
+    gradient: 'radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.1) 50%, transparent 80%)',
+    icon: '🎮',
+    status: 'Real-Time Gaming Stream (60 FPS)',
+    speed: '< 10 ms Ultra-Low Latency',
+    desc: 'Zero delay mobile-to-PC gaming with custom keymapping and studio audio passthrough.',
   },
   {
     id: 'remote-pc',
-    title: 'PC ➔ PC Remote Desktop Control',
-    subtitle: 'Control distant computers across different screens with full mouse, keyboard, and shortcut sync',
-    badge: '💻 REMOTE PC MIRRORING',
-    glowColor: '#a855f7',
-    gradient: 'radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.3) 0%, rgba(139, 92, 246, 0.1) 50%, transparent 80%)',
+    title: 'Windows to Windows Remote PC Desktop Control',
+    subtitle: 'Control distant PCs across cities and continents with encrypted zero-lag peer-to-peer relay, remote mouse/keyboard dispatch & clipboard sync',
+    badge: '💻 REMOTE DESKTOP PC-TO-PC CONTROL',
+    glowColor: '#00f5ff',
+    accentColor: '#38bdf8',
+    image: '/hero_bg_remote_pc.jpg',
+    gradient: 'radial-gradient(circle at 80% 20%, rgba(0, 245, 255, 0.3) 0%, rgba(0, 163, 196, 0.1) 50%, transparent 80%)',
     icon: '💻',
-    status: 'LBM Remote Desktop Active',
-    speed: '60 FPS Direct P2P Stream',
-    desc: 'Control distant computers across different cities and networks without port-forwarding.',
+    status: 'Encrypted Remote Desktop Active',
+    speed: '60 FPS Direct P2P Relay',
+    desc: 'Connect between computers anywhere in the world without requiring the same Wi-Fi network.',
   },
   {
-    id: 'global-remote',
-    title: 'Global Long-Distance Remote Viewer',
-    subtitle: 'Connect laptops thousands of kilometers apart across continents with high-speed satellite relays',
-    badge: '🌐 THOUSANDS OF KM REMOTE VIEWER',
-    glowColor: '#06b6d4',
-    gradient: 'radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.3) 0%, rgba(14, 116, 144, 0.1) 50%, transparent 80%)',
-    icon: '🌍',
-    status: 'Global Continental Link Active',
-    speed: '6,700 KM • 18ms Latency',
-    desc: 'Worldwide STUN/TURN relays ensure lag-free access even across different countries and ISPs.',
+    id: 'ios-android-desk',
+    title: 'Dual Cross-Platform Station: iOS Wireless & Android USB',
+    subtitle: 'Connect iPhone wirelessly with native Apple AirPlay 60 FPS or plug in Android via direct USB Type-C cable for high-speed hardware screen casting',
+    badge: '⚡ ONE APP • TWO WORLDS • UNLIMITED POSSIBILITIES',
+    glowColor: '#38bdf8',
+    accentColor: '#06b6d4',
+    image: '/hero_bg_ios_android_desk.jpg',
+    gradient: 'radial-gradient(circle at 80% 20%, rgba(56, 189, 248, 0.3) 0%, rgba(14, 165, 233, 0.1) 50%, transparent 80%)',
+    icon: '📱',
+    status: 'Dual iOS & Android Station Ready',
+    speed: '4K Ultra HD • Zero Wi-Fi USB',
+    desc: 'Full cross-platform freedom: AirPlay 2 Bonjour receiver and Scrcpy USB direct hardware cast.',
   },
   {
-    id: 'android-usb',
-    title: 'Android USB 60 FPS Gaming Cast',
-    subtitle: 'Plug-and-play direct Type-C hardware casting for PUBG, Free Fire & COD with GPU acceleration',
-    badge: '⚡ ANDROID DIRECT USB 60 FPS',
-    glowColor: '#10b981',
-    gradient: 'radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.1) 50%, transparent 80%)',
-    icon: '🎮',
-    status: 'Direct Scrcpy 4K Gaming Live',
-    speed: '4K 60Hz Retina Display',
-    desc: 'Hardware NVENC GPU acceleration for zero-drop high-octane gaming sessions.',
+    id: 'hands-gaming-usb',
+    title: 'Next-Gen Dual Gaming & Screen Control Station',
+    subtitle: 'Ultra-fast hardware acceleration, crystal-clear 1080p/4K streaming, and multi-device direct mirroring engineered for modern creators & gamers',
+    badge: '🚀 HARDWARE ACCELERATED DIRECT CAST',
+    glowColor: '#f59e0b',
+    accentColor: '#fbbf24',
+    image: '/hero_bg_hands_gaming_usb.jpg',
+    gradient: 'radial-gradient(circle at 80% 20%, rgba(245, 158, 11, 0.3) 0%, rgba(217, 119, 6, 0.1) 50%, transparent 80%)',
+    icon: '⚡',
+    status: 'Hardware NVENC GPU Acceleration',
+    speed: '60 FPS Ultra-Smooth Cast',
+    desc: 'Silicon-level hardware GPU acceleration with zero dropped frames and instant response.',
   },
 ]
 
-// 4 Dedicated Animated Vector Scene Backdrops
+// 4 Full-Resolution Photorealistic 3D Background Scenes with Contrast Vignette
 const VisualBackdropScenes: React.FC<{ activeIndex: number }> = ({ activeIndex }) => {
   return (
-    <div className="hero-visual-backdrop-container" aria-hidden="true">
-      {/* Scene 0: Mobile to PC 60 FPS Wireless Mirroring */}
-      <div className={`hero-visual-scene-layer ${activeIndex === 0 ? 'scene-active' : ''}`}>
-        <svg className="scene-vector-illustration" viewBox="0 0 1200 600" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="laserGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.8" />
-              <stop offset="50%" stopColor="#0284c7" stopOpacity="0.4" />
-              <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.8" />
-            </linearGradient>
-            <filter id="glowBlur" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="6" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
+    <div className="hero-photorealistic-backdrop-container" aria-hidden="true">
+      {HERO_3D_SCENES.map((sc, idx) => (
+        <div
+          key={sc.id}
+          className={`hero-photo-layer ${activeIndex === idx ? 'photo-active' : ''}`}
+          style={{ backgroundImage: `url(${sc.image})` }}
+        />
+      ))}
+      {/* High-Contrast Vignette: dark on left for ultra-sharp text, clear on right for 3D visuals */}
+      <div className="hero-vignette-overlay" />
+    </div>
+  )
+}
 
-          {/* Smartphone */}
-          <g transform="translate(180, 140)">
-            <rect x="0" y="0" width="160" height="320" rx="24" fill="#0b1329" stroke="#38bdf8" strokeWidth="3" filter="url(#glowBlur)" />
-            <rect x="12" y="24" width="136" height="270" rx="12" fill="#0f172a" />
-            <circle cx="80" cy="14" r="3" fill="#64748b" />
-            <rect x="24" y="44" width="112" height="60" rx="8" fill="rgba(56, 189, 248, 0.2)" />
-            <text x="32" y="76" fill="#38bdf8" fontSize="14" fontWeight="bold">LBM 60 FPS</text>
-            <text x="32" y="94" fill="#94a3b8" fontSize="11">Active Mirror</text>
-            <circle cx="80" cy="180" r="35" stroke="#38bdf8" strokeWidth="2" strokeDasharray="6 4" />
-            <text x="56" y="185" fill="#38bdf8" fontSize="12" fontWeight="bold">CASTING</text>
-          </g>
+// 5 Dedicated High-Resolution Executive Photos
+export const FOUNDER_3D_PHOTOS = [
+  {
+    id: 'founder-official',
+    title: 'Official Executive Leadership Portrait',
+    tag: '👑 Founder & CEO Profile',
+    src: '/founder_ceo_showcase.jpg',
+    caption: 'Laxman Choudhary — Founder & CEO, LBM Mirror Private Limited',
+  },
+  {
+    id: 'founder-remote-desk',
+    title: 'Remote Desktop & Worldwide Connectivity Station',
+    tag: '💻 Windows to Windows Control',
+    src: '/hero_bg_remote_pc.jpg',
+    caption: 'Connecting computers across continents with zero-lag P2P relays',
+  },
+  {
+    id: 'founder-gaming-mirror',
+    title: 'Real-Time 60 FPS Mobile Gaming Casting Station',
+    tag: '🎮 60 FPS Gaming Mirror',
+    src: '/hero_bg_mobile_gaming.jpg',
+    caption: 'Play mobile games in 4K 60 FPS on big monitors with zero lag',
+  },
+  {
+    id: 'founder-dual-station',
+    title: 'Dual Cross-Platform iOS & Android Workstation',
+    tag: '⚡ AirPlay & Direct USB Station',
+    src: '/hero_bg_ios_android_desk.jpg',
+    caption: 'Seamless wireless Apple AirPlay + Android direct hardware USB',
+  },
+  {
+    id: 'founder-hands-gaming',
+    title: 'Next-Gen Dual Handheld Gaming Control Hub',
+    tag: '🚀 Low-Latency Hardware Hub',
+    src: '/hero_bg_hands_gaming_usb.jpg',
+    caption: 'Ultra-low latency screen sharing for creators, professionals & gamers',
+  },
+]
 
-          {/* Laser stream connecting Phone to PC */}
-          <path d="M 340 300 Q 560 220 780 300" stroke="url(#laserGrad)" strokeWidth="4" strokeDasharray="12 8" filter="url(#glowBlur)">
-            <animate attributeName="stroke-dashoffset" values="100;0" dur="2s" repeatCount="indefinite" />
-          </path>
-          <path d="M 340 280 Q 560 200 780 280" stroke="#38bdf8" strokeWidth="2" opacity="0.6" strokeDasharray="6 6">
-            <animate attributeName="stroke-dashoffset" values="60;0" dur="1.5s" repeatCount="indefinite" />
-          </path>
+// 3D Interactive Photo Carousel with 3 Exclusive Contact Links
+export const Founder3DPhotoCarousel: React.FC = () => {
+  const [activePhotoIdx, setActivePhotoIdx] = useState<number>(0)
+  const [isPaused, setIsPaused] = useState<boolean>(false)
 
-          {/* PC Laptop / Monitor */}
-          <g transform="translate(780, 110)">
-            <rect x="0" y="0" width="340" height="230" rx="12" fill="#080e1a" stroke="#38bdf8" strokeWidth="3" filter="url(#glowBlur)" />
-            <rect x="14" y="14" width="312" height="190" rx="6" fill="#0b172a" />
-            <rect x="125" y="24" width="90" height="170" rx="8" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.5" />
-            <rect x="133" y="36" width="74" height="40" rx="4" fill="rgba(56, 189, 248, 0.25)" />
-            <text x="140" y="58" fill="#38bdf8" fontSize="9" fontWeight="bold">LBM 60 FPS</text>
-            <rect x="25" y="170" width="70" height="22" rx="4" fill="rgba(16, 185, 129, 0.2)" />
-            <text x="32" y="185" fill="#34d399" fontSize="10" fontWeight="bold">● LIVE 60 FPS</text>
-            <path d="M 130 230 L 210 230 L 230 270 L 110 270 Z" fill="#1e293b" stroke="#38bdf8" strokeWidth="1.5" />
-            <rect x="80" y="270" width="180" height="8" rx="4" fill="#334155" />
-          </g>
-        </svg>
+  // Auto-rotate 3D photos every 4.5s
+  useEffect(() => {
+    if (isPaused) return
+    const timer = setInterval(() => {
+      setActivePhotoIdx((prev) => (prev + 1) % FOUNDER_3D_PHOTOS.length)
+    }, 4500)
+    return () => clearInterval(timer)
+  }, [isPaused])
+
+  const handlePrev = () => {
+    setActivePhotoIdx((prev) => (prev - 1 + FOUNDER_3D_PHOTOS.length) % FOUNDER_3D_PHOTOS.length)
+  }
+
+  const handleNext = () => {
+    setActivePhotoIdx((prev) => (prev + 1) % FOUNDER_3D_PHOTOS.length)
+  }
+
+  const currentPhoto = FOUNDER_3D_PHOTOS[activePhotoIdx]
+
+  return (
+    <div
+      className="founder-3d-stage-container"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      {/* 3D Perspective Card Deck */}
+      <div className="founder-3d-cards-track">
+        {FOUNDER_3D_PHOTOS.map((photo, idx) => {
+          let pos = 'hidden'
+          if (idx === activePhotoIdx) pos = 'center'
+          else if (idx === (activePhotoIdx - 1 + FOUNDER_3D_PHOTOS.length) % FOUNDER_3D_PHOTOS.length) pos = 'left'
+          else if (idx === (activePhotoIdx + 1) % FOUNDER_3D_PHOTOS.length) pos = 'right'
+
+          if (pos === 'hidden') return null
+
+          return (
+            <div
+              key={photo.id}
+              className={`founder-3d-card card-${pos}`}
+              onClick={() => setActivePhotoIdx(idx)}
+              title={photo.title}
+            >
+              <div className="founder-3d-card-inner">
+                <img src={photo.src} alt={photo.title} className="founder-3d-img" />
+                <div className="founder-3d-card-overlay">
+                  <span className="founder-3d-tag">{photo.tag}</span>
+                  <strong>{photo.title}</strong>
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
 
-      {/* Scene 1: PC to PC Remote Desktop Control */}
-      <div className={`hero-visual-scene-layer ${activeIndex === 1 ? 'scene-active' : ''}`}>
-        <svg className="scene-vector-illustration" viewBox="0 0 1200 600" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="purpleBeam" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#a855f7" stopOpacity="0.8" />
-              <stop offset="50%" stopColor="#c084fc" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="#a855f7" stopOpacity="0.8" />
-            </linearGradient>
-          </defs>
-          <g transform="translate(140, 120)">
-            <rect x="0" y="0" width="380" height="250" rx="14" fill="#0b0f19" stroke="#a855f7" strokeWidth="3" />
-            <rect x="14" y="14" width="352" height="210" rx="8" fill="#0f172a" />
-            <rect x="14" y="194" width="352" height="30" fill="#1e1b4b" />
-            <text x="26" y="214" fill="#c084fc" fontSize="12" fontWeight="bold">🪟 Windows Host PC</text>
-            <text x="280" y="214" fill="#a855f7" fontSize="11">PIN: 489-210</text>
-            <circle cx="100" cy="90" r="28" fill="rgba(168, 85, 247, 0.15)" stroke="#a855f7" strokeWidth="1.5" />
-            <text x="82" y="95" fill="#e9d5ff" fontSize="11">DESKTOP</text>
-            <path d="M 150 250 L 230 250 L 250 295 L 130 295 Z" fill="#1e1b4b" />
-            <rect x="100" y="295" width="180" height="8" rx="4" fill="#312e81" />
-          </g>
+      {/* Navigation Controls */}
+      <div className="founder-3d-nav-row">
+        <button type="button" className="founder-3d-nav-btn prev" onClick={handlePrev} title="Previous Photo">
+          ◀ Prev
+        </button>
 
-          <path d="M 520 240 Q 640 180 760 240" stroke="url(#purpleBeam)" strokeWidth="4" strokeDasharray="10 6">
-            <animate attributeName="stroke-dashoffset" values="80;0" dur="1.8s" repeatCount="indefinite" />
-          </path>
-          <g transform="translate(630, 200)">
-            <polygon points="0,0 8,24 12,16 20,20 22,16 14,12 22,10" fill="#ffffff" stroke="#a855f7" strokeWidth="2" />
-          </g>
+        <div className="founder-3d-dots-row">
+          {FOUNDER_3D_PHOTOS.map((p, i) => (
+            <button
+              key={p.id}
+              type="button"
+              className={`founder-dot-btn ${i === activePhotoIdx ? 'active' : ''}`}
+              onClick={() => setActivePhotoIdx(i)}
+            >
+              <span className="dot-number">{i + 1}</span>
+              <span className="dot-label">{p.tag.split(' ')[1] || p.tag}</span>
+            </button>
+          ))}
+        </div>
 
-          <g transform="translate(760, 120)">
-            <rect x="0" y="0" width="380" height="250" rx="14" fill="#0b0f19" stroke="#a855f7" strokeWidth="3" />
-            <rect x="14" y="14" width="352" height="210" rx="8" fill="#111827" />
-            <rect x="14" y="194" width="352" height="30" fill="#1e1b4b" />
-            <text x="26" y="214" fill="#4ade80" fontSize="12" fontWeight="bold">● Remote Control Active</text>
-            <text x="260" y="214" fill="#c084fc" fontSize="11">Latency: 11ms</text>
-            <rect x="40" y="34" width="290" height="140" rx="6" fill="#0f172a" stroke="#a855f7" strokeWidth="1" />
-            <rect x="40" y="34" width="290" height="22" fill="#312e81" />
-            <text x="50" y="50" fill="#ffffff" fontSize="10">LBM Remote Session — 60 FPS Full Control</text>
-            <path d="M 150 250 L 230 250 L 250 295 L 130 295 Z" fill="#1e1b4b" />
-            <rect x="100" y="295" width="180" height="8" rx="4" fill="#312e81" />
-          </g>
-        </svg>
+        <button type="button" className="founder-3d-nav-btn next" onClick={handleNext} title="Next Photo">
+          Next ▶
+        </button>
       </div>
 
-      {/* Scene 2: Global Long-Distance Remote Viewer (Thousands of KM) */}
-      <div className={`hero-visual-scene-layer ${activeIndex === 2 ? 'scene-active' : ''}`}>
-        <svg className="scene-vector-illustration" viewBox="0 0 1200 600" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="globalArc" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.9" />
-              <stop offset="50%" stopColor="#38bdf8" stopOpacity="0.7" />
-              <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.9" />
-            </linearGradient>
-          </defs>
-          <g transform="translate(600, 300)">
-            <circle cx="0" cy="0" r="150" stroke="#06b6d4" strokeWidth="2" strokeDasharray="6 4" opacity="0.5" />
-            <ellipse cx="0" cy="0" rx="150" ry="50" stroke="#06b6d4" strokeWidth="1.5" opacity="0.4" />
-            <ellipse cx="0" cy="0" rx="50" ry="150" stroke="#06b6d4" strokeWidth="1.5" opacity="0.4" />
-            <circle cx="0" cy="0" r="170" stroke="#38bdf8" strokeWidth="1" strokeDasharray="3 8" opacity="0.3">
-              <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="30s" repeatCount="indefinite" />
-            </circle>
-          </g>
-
-          <path d="M 220 340 Q 600 60 980 340" stroke="url(#globalArc)" strokeWidth="4" strokeDasharray="14 8">
-            <animate attributeName="stroke-dashoffset" values="120;0" dur="2.2s" repeatCount="indefinite" />
-          </path>
-
-          <g transform="translate(100, 270)">
-            <rect x="0" y="0" width="220" height="130" rx="8" fill="#081426" stroke="#06b6d4" strokeWidth="2" />
-            <rect x="10" y="10" width="200" height="100" rx="4" fill="#0f172a" />
-            <text x="20" y="35" fill="#38bdf8" fontSize="12" fontWeight="bold">🇮🇳 Operator PC</text>
-            <text x="20" y="60" fill="#94a3b8" fontSize="10">Delhi, India</text>
-            <rect x="-20" y="130" width="260" height="12" rx="4" fill="#1e293b" />
-          </g>
-
-          <g transform="translate(510, 110)">
-            <rect x="0" y="0" width="180" height="42" rx="21" fill="rgba(6, 182, 212, 0.2)" stroke="#06b6d4" strokeWidth="2" />
-            <text x="20" y="22" fill="#ffffff" fontSize="12" fontWeight="bold">🌐 6,700 KM DISTANCE</text>
-            <text x="32" y="35" fill="#38bdf8" fontSize="10">Zero-Lag P2P • 18ms</text>
-          </g>
-
-          <g transform="translate(880, 270)">
-            <rect x="0" y="0" width="220" height="130" rx="8" fill="#081426" stroke="#06b6d4" strokeWidth="2" />
-            <rect x="10" y="10" width="200" height="100" rx="4" fill="#0f172a" />
-            <text x="20" y="35" fill="#4ade80" fontSize="12" fontWeight="bold">🌍 Distant Remote PC</text>
-            <text x="20" y="60" fill="#94a3b8" fontSize="10">Across The World</text>
-            <rect x="-20" y="130" width="260" height="12" rx="4" fill="#1e293b" />
-          </g>
-        </svg>
+      {/* Caption Banner */}
+      <div className="founder-3d-caption-banner">
+        <span className="caption-tag">⭐ {currentPhoto.tag}</span>
+        <p className="caption-text">{currentPhoto.caption}</p>
       </div>
 
-      {/* Scene 3: Android Direct USB 60 FPS Gaming Cast */}
-      <div className={`hero-visual-scene-layer ${activeIndex === 3 ? 'scene-active' : ''}`}>
-        <svg className="scene-vector-illustration" viewBox="0 0 1200 600" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="usbCableGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#10b981" />
-              <stop offset="50%" stopColor="#34d399" />
-              <stop offset="100%" stopColor="#10b981" />
-            </linearGradient>
-          </defs>
-          <g transform="translate(160, 160)">
-            <rect x="0" y="0" width="260" height="140" rx="18" fill="#041f18" stroke="#10b981" strokeWidth="3" />
-            <rect x="12" y="12" width="236" height="116" rx="10" fill="#064e3b" />
-            <text x="26" y="45" fill="#34d399" fontSize="14" fontWeight="bold">🎮 BATTLEGROUNDS</text>
-            <text x="26" y="68" fill="#a7f3d0" fontSize="11">Direct Hardware Scrcpy</text>
-            <rect x="26" y="85" width="90" height="24" rx="4" fill="rgba(16, 185, 129, 0.4)" />
-            <text x="34" y="101" fill="#ffffff" fontSize="11" fontWeight="bold">60.0 FPS</text>
-          </g>
+      {/* Official Founder Info & EXACTLY 3 Contact Options (NO PHONE) */}
+      <div className="founder-official-profile-box">
+        <div className="founder-official-title">
+          <h4>👑 Laxman Choudhary (लक्ष्मण चौधरी)</h4>
+          <span className="founder-role-text">Founder &amp; CEO — LBM Mirror Private Limited</span>
+          <p className="founder-vision-quote">
+            &ldquo;Distance Means Nothing When Technology Brings Us Together.&rdquo; — Laxman Choudhary
+          </p>
+        </div>
 
-          <path d="M 420 230 C 520 230, 560 280, 680 280" stroke="url(#usbCableGrad)" strokeWidth="6" strokeLinecap="round" />
-          <path d="M 420 230 C 520 230, 560 280, 680 280" stroke="#ffffff" strokeWidth="2" strokeDasharray="8 8">
-            <animate attributeName="stroke-dashoffset" values="60;0" dur="1s" repeatCount="indefinite" />
-          </path>
-          <rect x="670" y="272" width="24" height="16" rx="3" fill="#10b981" />
+        <div className="founder-official-contacts-row">
+          <a
+            href="mailto:lc1229501@gmail.com"
+            className="f-contact-btn email-btn"
+            title="Send Email to lc1229501@gmail.com"
+          >
+            <span className="f-btn-icon">📧</span>
+            <div className="f-btn-info">
+              <small>Email</small>
+              <strong>lc1229501@gmail.com</strong>
+            </div>
+          </a>
 
-          <g transform="translate(700, 100)">
-            <path d="M 10 10 Q 230 -10 450 10 L 440 280 Q 230 260 20 280 Z" fill="#051c14" stroke="#10b981" strokeWidth="3" />
-            <path d="M 25 25 Q 230 8 435 25 L 425 265 Q 230 248 35 265 Z" fill="#022c22" />
-            <text x="140" y="70" fill="#34d399" fontSize="18" fontWeight="bold">4K 60Hz GAMING CAST</text>
-            <text x="160" y="100" fill="#a7f3d0" fontSize="13">Zero Lag • GPU Hardware NVENC</text>
-            <rect x="175" y="130" width="120" height="32" rx="6" fill="#10b981" />
-            <text x="190" y="152" fill="#022c22" fontSize="13" fontWeight="bold">⚡ ZERO DELAY</text>
-            <path d="M 200 275 L 260 275 L 280 340 L 180 340 Z" fill="#064e3b" />
-            <rect x="140" y="340" width="180" height="10" rx="5" fill="#047857" />
-          </g>
-        </svg>
+          <a
+            href="https://www.youtube.com/channel/UCaDs-ZGTGNIvuteFdarhrSg"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="f-contact-btn youtube-btn"
+            title="Official YouTube Channel"
+          >
+            <span className="f-btn-icon">📺</span>
+            <div className="f-btn-info">
+              <small>YouTube</small>
+              <strong>Official Channel</strong>
+            </div>
+          </a>
+
+          <a
+            href="https://www.instagram.com/lucky_bhambhu?stkn=MXgyaHZmNGlhdDR0bA%3D%3D&utm_source=qr"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="f-contact-btn instagram-btn"
+            title="Official Instagram @lucky_bhambhu"
+          >
+            <span className="f-btn-icon">📸</span>
+            <div className="f-btn-info">
+              <small>Instagram</small>
+              <strong>@lucky_bhambhu</strong>
+            </div>
+          </a>
+        </div>
       </div>
     </div>
   )
@@ -441,24 +462,24 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
       </header>
 
       {/* ─── 2. Hero Section with Dynamic 4-Scene Background & 5s Unfolding Typography ─── */}
-      <section className="landing-hero" id="hero" style={{ position: 'relative' }}>
-        {/* Dynamic 4-Scene Vector Backgrounds */}
+      <section className="landing-hero" id="hero">
+        {/* Dynamic 4-Scene Photorealistic Backgrounds */}
         <VisualBackdropScenes activeIndex={sceneIndex} />
 
-        <div className="landing-hero-left" style={{ position: 'relative', zIndex: 2 }}>
+        <div className="landing-hero-left hero-high-contrast-card" style={{ position: 'relative', zIndex: 3 }}>
           {/* Dynamic Scene Pill */}
           <div
             className="landing-pill-tag dynamic-pill-glow"
             style={{
               borderColor: currentScene.glowColor,
-              color: currentScene.glowColor,
-              boxShadow: `0 0 16px ${currentScene.glowColor}40`,
+              color: currentScene.accentColor,
+              boxShadow: `0 0 20px ${currentScene.glowColor}50`,
             }}
           >
-            <span>{currentScene.icon}</span>
+            <span style={{ fontSize: '1.1rem' }}>{currentScene.icon}</span>
             <span>{currentScene.badge}</span>
             <span style={{ color: '#94a3b8' }}>•</span>
-            <span>Windows 11 / 10 / 8 / 7 • 64-Bit Desktop Release</span>
+            <span style={{ color: '#e2e8f0' }}>Windows 11 / 10 / 8 / 7 • 64-Bit Desktop</span>
           </div>
 
           {/* 5-Second Progress Countdown Bar */}
@@ -466,25 +487,24 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
             <div className="hero-5s-progress-fill" key={`progress-${sceneIndex}`} />
           </div>
 
-          {/* Kinetic Unfolding Headline */}
+          {/* Kinetic Unfolding Headline (High-Contrast White with Glowing Highlight) */}
           <div className="hero-headline-wrap" key={`scene-text-${sceneIndex}`}>
-            <span className="hero-title-tagline">{currentScene.badge}</span>
+            <span className="hero-title-tagline" style={{ color: currentScene.glowColor }}>
+              {currentScene.badge}
+            </span>
             <h2 className="hero-title-main unfolding-text-anim">
-              <span
-                className="hero-title-highlight dynamic-glow-text"
-                style={{
-                  color: currentScene.glowColor,
-                  textShadow: `0 0 28px ${currentScene.glowColor}80, 0 0 50px ${currentScene.glowColor}35`,
-                }}
-              >
+              <span className="hero-title-pure-white">
                 {currentScene.title}
               </span>
             </h2>
 
             <p className="hero-subtitle stylish-subtext-unfold">
-              <strong>Smarter, More Comprehensive &amp; Zero-Lag:</strong> {currentScene.subtitle}.
-              Control any remote Windows PC across any network, mirror iPhone with Apple AirPlay 60 FPS,
-              and connect Android via high-speed direct USB cable.
+              <strong style={{ color: '#ffffff' }}>Smarter, More Comprehensive &amp; Zero-Lag:</strong>{' '}
+              <span style={{ color: '#f1f5f9' }}>{currentScene.subtitle}.</span>{' '}
+              <span style={{ color: '#cbd5e1' }}>
+                Control any remote Windows PC across any network, mirror iPhone with Apple AirPlay 60 FPS,
+                and connect Android via high-speed direct USB cable.
+              </span>
             </p>
           </div>
 
@@ -793,34 +813,8 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
             </div>
           </div>
 
-          {/* The High-Resolution Executive Office Photo Provided by User */}
-          <div className="founder-photo-showcase-container">
-            <img
-              src="/founder_ceo_showcase.jpg"
-              alt="Laxman Choudhary, Founder & CEO, LBM Mirror Private Limited"
-              className="founder-showcase-image"
-              onError={(e) => {
-                ;(e.currentTarget as HTMLImageElement).src = '/logo.png'
-              }}
-            />
-          </div>
-
-          <div className="founder-grand-footer-pills">
-            <div className="founder-quote-banner">
-              &ldquo;Technology should bring people closer.&rdquo; — Laxman Choudhary
-            </div>
-            <div className="founder-stats-pills">
-              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>ONE APP • ALL DEVICES • NO LIMITS</span>
-              <button
-                type="button"
-                className="btn-header-download"
-                onClick={handleDownload}
-                style={{ padding: '6px 16px', fontSize: '0.8rem' }}
-              >
-                ⬇️ Download Setup (.EXE)
-              </button>
-            </div>
-          </div>
+          {/* 👑 3D Interactive Photo Carousel with 5 Photos & 3 Exclusive Links */}
+          <Founder3DPhotoCarousel />
         </div>
       </section>
 
@@ -1000,56 +994,15 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
             </button>
 
             <div className="founder-lightbox-header">
-              <span style={{ fontSize: '0.75rem', color: '#fbbf24', fontWeight: 800 }}>
-                👑 OFFICIAL LEADERSHIP PROFILE
+              <span style={{ fontSize: '0.78rem', color: '#fbbf24', fontWeight: 800, letterSpacing: '0.05em' }}>
+                👑 OFFICIAL FOUNDER &amp; CEO 3D SHOWCASE
               </span>
-              <h3>Laxman Choudhary</h3>
+              <h3>Laxman Choudhary (लक्ष्मण चौधरी)</h3>
               <p>Founder &amp; CEO — LBM Mirror Private Limited</p>
             </div>
 
-            <div className="founder-lightbox-img-wrap">
-              <img
-                src="/founder_ceo_showcase.jpg"
-                alt="Laxman Choudhary, Founder & CEO"
-                className="founder-lightbox-img"
-              />
-            </div>
-
-            <div className="founder-lightbox-quote">
-              &ldquo;Technology should bring people closer.&rdquo; — Laxman Choudhary
-            </div>
-
-            <div className="founder-lightbox-actions">
-              <a
-                href={`https://wa.me/${(settings.whatsapp || '+919876543210').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                  'नमस्ते Founder & CEO! मैं LBM Mirror ऐप के बारे में संपर्क कर रहा हूँ।'
-                )}`}
-                target="_blank"
-                rel="noreferrer"
-                className="founder-cta-btn wa"
-              >
-                💬 WhatsApp पर बात करें
-              </a>
-
-              <a
-                href={settings.instagramUrl || 'https://instagram.com/laxman_choudhary'}
-                target="_blank"
-                rel="noreferrer"
-                className="founder-cta-btn insta"
-              >
-                📸 Instagram
-              </a>
-
-              <button
-                type="button"
-                className="founder-cta-btn call"
-                onClick={() => {
-                  window.location.href = `tel:${(settings.phone || '+919876543210').replace(/[^0-9+]/g, '')}`
-                }}
-              >
-                📞 कॉल करें
-              </button>
-            </div>
+            {/* 3D 5-Photo Carousel inside Modal */}
+            <Founder3DPhotoCarousel />
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAppSettings } from '../context/AppSettingsContext'
+import { cloudSyncService } from '../services/cloudSyncService'
 import './ProblemReportModal.css'
 
 interface ProblemReportModalProps {
@@ -71,67 +72,44 @@ export const ProblemReportModal: React.FC<ProblemReportModalProps> = ({
     setSubmitting(true)
     setError(null)
 
-    const payload = {
-      userId,
-      name: name.trim() || 'Anonymous User',
-      contact: contact.trim() || 'Not Provided',
-      category,
-      deviceInfo: deviceSpec,
-      priority: 'Normal',
-      message: message.trim(),
-      timestamp: new Date().toISOString(),
-    }
-
     // Save user info locally for future tickets
     if (name.trim()) localStorage.setItem('lbm_client_user_name', name.trim())
     if (contact.trim()) localStorage.setItem('lbm_client_user_contact', contact.trim())
 
-    let ticketId = `TCK-${Date.now().toString().slice(-6)}`
-
     try {
-      const res = await fetch('/api/support/query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.ticketId) ticketId = data.ticketId
-      }
-    } catch (err) {
-      console.warn('[Problem Report] Network error posting to server, saved locally:', err)
-    }
-
-    // Always store ticket in local storage so AdminPanel can merge it 100% reliably
-    try {
-      const existingRaw = localStorage.getItem('lbm_local_user_queries')
-      const existing = existingRaw ? JSON.parse(existingRaw) : []
-      const ticketObj = {
-        id: ticketId,
+      const result = await cloudSyncService.submitTicket({
         userId,
-        name: payload.name,
-        contact: payload.contact,
-        category: payload.category,
-        deviceInfo: payload.deviceInfo,
-        message: payload.message,
-        status: 'new',
-        timestamp: payload.timestamp,
-      }
-      existing.unshift(ticketObj)
-      localStorage.setItem('lbm_local_user_queries', JSON.stringify(existing.slice(0, 50)))
-    } catch {}
+        name: name.trim() || 'Anonymous User',
+        contact: contact.trim() || 'Not Provided',
+        category,
+        deviceInfo: deviceSpec,
+        priority: 'High',
+        message: message.trim(),
+      })
 
-    setSubmitting(false)
-    setSubmittedTicket({ ticketId, userId })
-    setMessage('')
+      setSubmittedTicket({ ticketId: result.ticket.id, userId: result.ticket.userId })
+      setMessage('')
+    } catch (err) {
+      console.warn('[Problem Report] Error submitting ticket:', err)
+      setError('टिकट सबमिट करने में समस्या आई, कृपया पुनः प्रयास करें।')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleCopyUserId = () => {
     navigator.clipboard.writeText(userId)
   }
 
+  const founderEmail = 'lc1229501@gmail.com'
+  const emailMailtoUrl = `mailto:${founderEmail}?subject=${encodeURIComponent(
+    `[LBM Support] User ${userId} - ${category}`
+  )}&body=${encodeURIComponent(
+    `नमस्ते Founder & CEO!\n\nUser ID: ${userId}\nनाम: ${name || 'User'}\nसंपर्क: ${contact || 'Not Provided'}\nश्रेणी: ${category}\nडिवाइस: ${deviceSpec}\n\nसमस्या:\n${message || 'सहायता चाहिए।'}`
+  )}`
+
   const directWhatsAppUrl = `https://wa.me/${(settings.whatsapp || '+919876543210').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-    `नमस्ते Founder & CEO! मेरी LBM User ID है: ${userId}\nमेरी समस्या का विवरण:\n${message || 'सहायता चाहिए।'}`
+    `नमस्ते Founder & CEO! मेरी LBM User ID है: ${userId}\nश्रेणी: ${category}\nसमस्या:\n${message || 'सहायता चाहिए।'}`
   )}`
 
   return (
@@ -155,7 +133,7 @@ export const ProblemReportModal: React.FC<ProblemReportModalProps> = ({
             <div className="success-icon-badge">✅</div>
             <h4>आपकी समस्या सफलतापूर्वक दर्ज हो गई है!</h4>
             <p>
-              Founder &amp; CEO <strong>{settings.founderName || 'Laxman Choudhary'}</strong> और सपोर्ट टीम को आपका संदेश प्राप्त हो गया है। एडमिन पैनल में आपका टिकट सक्रिय है।
+              Founder &amp; CEO <strong>Laxman Choudhary</strong> को आपका संदेश प्राप्त हो गया है। एडमिन पैनल में आपका टिकट सक्रिय है।
             </p>
 
             <div className="success-ticket-box">
@@ -165,12 +143,19 @@ export const ProblemReportModal: React.FC<ProblemReportModalProps> = ({
 
             <div className="support-success-actions">
               <a
+                href={emailMailtoUrl}
+                className="wa-direct-btn"
+                style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' }}
+              >
+                📧 Email भेजें (lc1229501@gmail.com)
+              </a>
+              <a
                 href={directWhatsAppUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="wa-direct-btn"
               >
-                💬 व्हाट्सएप पर सीधे बात करें
+                💬 WhatsApp पर भेजें
               </a>
               <button type="button" className="support-done-btn" onClick={onClose}>
                 पूर्ण (Done)

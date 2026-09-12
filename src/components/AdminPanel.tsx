@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useAppSettings, type AppSettings } from '../context/AppSettingsContext'
+import { cloudSyncService } from '../services/cloudSyncService'
 import './AdminPanel.css'
 
 interface AdminPanelProps {
@@ -127,27 +128,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onSwitchToUserView }) =>
         if (data.success) setStats(data.stats)
       }
 
-      // 2. Queries / Ideas / User Problems (Merge Server + Local Storage)
-      let fetchedQueries: UserQuery[] = []
-      const queriesRes = await fetch('/api/admin/queries').catch(() => null)
-      if (queriesRes?.ok) {
-        const data = await queriesRes.json()
-        if (data.success && Array.isArray(data.queries)) {
-          fetchedQueries = data.queries
-        }
-      }
-      try {
-        const localRaw = localStorage.getItem('lbm_local_user_queries')
-        if (localRaw) {
-          const localList: UserQuery[] = JSON.parse(localRaw)
-          for (const lq of localList) {
-            if (!fetchedQueries.some((fq) => fq.id === lq.id)) {
-              fetchedQueries.unshift(lq)
-            }
-          }
-        }
-      } catch {}
-      setQueries(fetchedQueries)
+      // 2. Queries / Ideas / User Problems (Merge Server + Global Cloud Bucket + Local Storage)
+      const fetchedQueries = await cloudSyncService.fetchAllTickets()
+      setQueries(fetchedQueries as UserQuery[])
 
       // 3. Users Directory (Merge Server + Local Storage Registrations)
       let fetchedUsers: RegisteredUser[] = []
@@ -286,15 +269,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onSwitchToUserView }) =>
   // Query Actions
   const handleQueryStatus = async (id: string, status: string) => {
     try {
-      const res = await fetch(`/api/admin/queries/${id}/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      })
-      if (res.ok) {
-        setQueries((prev) => prev.map((q) => (q.id === id ? { ...q, status } : q)))
-        notifySuccess('स्टेटस अपडेट किया गया (Status updated)')
-      }
+      await cloudSyncService.updateTicketStatus(id, status as any)
+      setQueries((prev) => prev.map((q) => (q.id === id ? { ...q, status } : q)))
+      notifySuccess('स्टेटस अपडेट किया गया (Status updated)')
     } catch {
       notifyError('Failed to update status.')
     }
@@ -303,11 +280,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onSwitchToUserView }) =>
   const handleDeleteQuery = async (id: string) => {
     if (!window.confirm('क्या आप वाकई इस संदेश को हटाना चाहते हैं? (Delete this message?)')) return
     try {
-      const res = await fetch(`/api/admin/queries/${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        setQueries((prev) => prev.filter((q) => q.id !== id))
-        notifySuccess('संदेश हटा दिया गया (Message deleted)')
-      }
+      await cloudSyncService.deleteTicket(id)
+      setQueries((prev) => prev.filter((q) => q.id !== id))
+      notifySuccess('संदेश हटा दिया गया (Message deleted)')
     } catch {
       notifyError('Failed to delete query.')
     }

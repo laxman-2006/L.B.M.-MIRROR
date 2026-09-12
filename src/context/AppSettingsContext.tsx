@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import logoImg from '../assets/logo.png'
-import bannerImg from '../assets/founder_banner.jpg'
 
 export interface AppSettings {
   appName: string
@@ -30,17 +29,17 @@ export const DEFAULT_SETTINGS: AppSettings = {
   appLogo: logoImg,
   founderName: 'Laxman Choudhary',
   founderRole: 'Founder & CEO — LBM Mirror',
-  founderQuote: 'Ideas To A More Connected World',
-  founderBanner: bannerImg,
-  email: 'contact@laxmanchoudhary.com',
-  phone: '+91 98765 43210',
-  whatsapp: '+91 98765 43210',
-  instagramHandle: '@laxman_choudhary',
-  instagramUrl: 'https://instagram.com/laxman_choudhary',
-  youtubeHandle: 'LBM Mirror Official',
-  youtubeUrl: 'https://youtube.com/@LBMMirror',
-  facebookHandle: 'LBM Mirror Official',
-  facebookUrl: 'https://facebook.com/LBMMirror',
+  founderQuote: 'Distance Means Nothing When Technology Brings Us Together.',
+  founderBanner: '/founder_ceo_showcase.jpg',
+  email: 'lc1229501@gmail.com',
+  phone: '',
+  whatsapp: '',
+  instagramHandle: '@lucky_bhambhu',
+  instagramUrl: 'https://www.instagram.com/lucky_bhambhu?stkn=MXgyaHZmNGlhdDR0bA%3D%3D&utm_source=qr',
+  youtubeHandle: 'UCaDs-ZGTGNIvuteFdarhrSg',
+  youtubeUrl: 'https://www.youtube.com/channel/UCaDs-ZGTGNIvuteFdarhrSg',
+  facebookHandle: '',
+  facebookUrl: '',
   windowsDownloadUrl: 'https://github.com/laxman-2006/L.B.M.-MIRROR/releases/latest',
   androidDownloadUrl: '/api/download/android',
   adminPin: '1229',
