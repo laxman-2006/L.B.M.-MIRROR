@@ -83,8 +83,16 @@
     ],
     "extraResources": [
       {
-        "from": "bin",
-        "to": "bin"
+        "from": "bin/adb",
+        "to": "bin/adb"
+      },
+      {
+        "from": "bin/scrcpy",
+        "to": "bin/scrcpy"
+      },
+      {
+        "from": "bin/airplay",
+        "to": "bin/airplay"
       }
     ],
     "win": {
@@ -107,11 +115,13 @@
       "signExecutable": false
     },
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
+      "runAfterFinish": true,
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico"

@@ -303,12 +303,6 @@ export default function App() {
     })
   }, [])
 
-  // ─── Initialize Host Peer for Cross-Device WebRTC Mirroring ────────────────
-  useEffect(() => {
-    if (currentPin) {
-      defaultPeerService.initHost(currentPin).catch(() => {})
-    }
-  }, [currentPin])
 
   // ─── Silent Auth Verification on Mount (Never opens login modal!) ──────────
   useEffect(() => {
@@ -461,6 +455,7 @@ export default function App() {
 
     const s = io(signalUrl, { transports: ['websocket', 'polling'] })
     socketRef.current = s
+    defaultPeerService.setSocket(s)
 
     s.on('connect', () => {
       s.emit('session:create', { hostName: 'LBM Mirror' })

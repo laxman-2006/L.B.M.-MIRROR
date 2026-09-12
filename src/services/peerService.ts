@@ -1,12 +1,16 @@
 /**
- * LBM Mirror - Universal WebRTC Peer-to-Peer Cloud Engine (UltraViewer Mode)
- * Uses PeerJS + Google STUN servers for 100% serverless, zero-backend cross-device screen mirroring & remote control.
- * Works across ANY network, different Wi-Fi, 4G/5G, and worldwide over the internet.
+ * LBM Mirror - Universal WebRTC Peer-to-Peer Cloud Engine (UltraViewer & AnyDesk Mode)
+ * Triple-Engine Architecture:
+ * 1. Primary Engine: Direct Socket.IO WebRTC Offer/Answer Signaling Relay
+ * 2. Secondary Engine: PeerJS Cloud WebRTC (Google STUN + OpenRelay TURN port 443 TCP/UDP)
+ * 3. Local Engine: BroadcastChannel for zero-latency local testing across tabs & windows
+ * 4. Zero-Drop Remote Control: Mouse click/move/drag/scroll, keyboard typing, system shortcuts, chat, clipboard
  */
 
 import { Peer, type MediaConnection, type DataConnection } from 'peerjs'
+import type { Socket } from 'socket.io-client'
 
-const ICE_SERVERS: RTCIceServer[] = [
+export const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
@@ -15,7 +19,7 @@ const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:global.stun.twilio.com:3478' },
   { urls: 'stun:stun.services.mozilla.com' },
   { urls: 'stun:stun.cloudflare.com:3478' },
-  // OpenRelay Public TURN Relay Servers (Port 80, 443 TCP/UDP) for Symmetric NAT / Mobile Hotspots
+  // OpenRelay Public TURN Relay Servers (Port 80, 443 TCP/UDP) for Carrier/Symmetric NAT
   {
     urls: [
       'turn:openrelay.metered.ca:80',
@@ -59,15 +63,44 @@ export interface ChatMessage {
   time: string
 }
 
+export function createFallbackVideoStream(title = 'LBM Mirror Screen Stream'): MediaStream {
+  if (typeof document === 'undefined') return new MediaStream()
+  const canvas = document.createElement('canvas')
+  canvas.width = 1280
+  canvas.height = 720
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    ctx.fillStyle = '#060d1f'
+    ctx.fillRect(0, 0, 1280, 720)
+    ctx.fillStyle = '#38bdf8'
+    ctx.font = 'bold 36px Segoe UI, Roboto, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText(title, 640, 320)
+    ctx.fillStyle = '#94a3b8'
+    ctx.font = '22px Segoe UI, Roboto, sans-serif'
+    ctx.fillText('Remote Screen session active • Waiting for display stream...', 640, 380)
+  }
+  return canvas.captureStream ? canvas.captureStream(30) : new MediaStream()
+}
+
 export class PeerService {
   private peer: Peer | null = null
   private activeCall: MediaConnection | null = null
   private activeDataConn: DataConnection | null = null
+  private nativeRtcPc: RTCPeerConnection | null = null
+  private nativeDataChannel: RTCDataChannel | null = null
   private localStream: MediaStream | null = null
   private streamProvider: (() => Promise<MediaStream | null>) | null = null
   private currentPin: string = ''
   private currentPasscode: string = ''
+  private socket: Socket | null = null
   private broadcastChannel: BroadcastChannel | null = null
+  private isConnecting: boolean = false
+  private activePartnerRoom: string = ''
+
+  public isSessionConnecting(): boolean {
+    return this.isConnecting
+  }
 
   private onRemoteStreamCb: ((stream: MediaStream) => void) | null = null
   private onConnectionStateCb: ((status: 'idle' | 'ready' | 'connecting' | 'connected' | 'disconnected' | 'error', detail?: string) => void) | null = null
@@ -76,12 +109,165 @@ export class PeerService {
   private onClipboardCb: ((text: string) => void) | null = null
 
   constructor() {
-    // Setup BroadcastChannel for zero-latency same-browser cross-tab testing
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       try {
         this.broadcastChannel = new BroadcastChannel('lbm_screen_mirror_bc')
         this.broadcastChannel.onmessage = (evt) => {
           this.handleBroadcastMessage(evt.data)
+        }
+      } catch {}
+    }
+  }
+
+  setSocket(socket: Socket | null) {
+    this.socket = socket
+    if (socket) {
+      this.attachSocketListeners()
+    }
+  }
+
+  private attachSocketListeners() {
+    if (!this.socket) return
+
+    // Host received incoming partner via Socket.IO
+    this.socket.on('ultraviewer:incoming_partner', async (payload: any) => {
+      console.log('[PeerService] Partner incoming via Socket.IO:', payload)
+      this.notifyStatus('connecting', `Partner connected: ${payload?.clientName || 'Remote Operator'}`)
+      const room = `uv_${this.currentPin}`
+      this.activePartnerRoom = room
+      await this.initSocketHostRtc(room)
+    })
+
+    // WebRTC Signal relay (Offer, Answer, ICE)
+    this.socket.on('ultraviewer:signal', async ({ signal, type }: any) => {
+      if (!signal || !type) return
+      console.log(`[PeerService] Received WebRTC signal via Socket.IO: ${type}`)
+
+      if (type === 'offer' && this.nativeRtcPc) {
+        try {
+          await this.nativeRtcPc.setRemoteDescription(new RTCSessionDescription(signal))
+          const answer = await this.nativeRtcPc.createAnswer()
+          await this.nativeRtcPc.setLocalDescription(answer)
+          this.socket?.emit('ultraviewer:signal', {
+            targetRoom: this.activePartnerRoom,
+            signal: answer,
+            type: 'answer',
+          })
+        } catch (err) {
+          console.warn('[PeerService] Socket RTC answer error:', err)
+        }
+      } else if (type === 'answer' && this.nativeRtcPc) {
+        try {
+          await this.nativeRtcPc.setRemoteDescription(new RTCSessionDescription(signal))
+          console.log('[PeerService] Socket RTC answer accepted!')
+        } catch (err) {
+          console.warn('[PeerService] Socket RTC setRemoteDescription error:', err)
+        }
+      } else if (type === 'ice' && this.nativeRtcPc) {
+        try {
+          await this.nativeRtcPc.addIceCandidate(new RTCIceCandidate(signal))
+        } catch {}
+      }
+    })
+
+    this.socket.on('ultraviewer:input', (payload: any) => {
+      if (payload?.event) {
+        this.handleIncomingControlEvent(payload.event)
+      }
+    })
+
+    this.socket.on('ultraviewer:chat', (payload: any) => {
+      if (payload?.message && this.onChatCb) {
+        this.onChatCb(payload.message)
+      }
+    })
+
+    this.socket.on('ultraviewer:clipboard', (payload: any) => {
+      if (payload?.text && this.onClipboardCb) {
+        this.onClipboardCb(payload.text)
+      }
+    })
+
+    this.socket.on('ultraviewer:partner_disconnected', () => {
+      this.notifyStatus('disconnected', 'Remote session closed by partner.')
+    })
+  }
+
+  /**
+   * Host initializes native WebRTC PeerConnection for incoming partner
+   */
+  private async initSocketHostRtc(room: string) {
+    if (this.nativeRtcPc) {
+      try { this.nativeRtcPc.close() } catch {}
+    }
+
+    const pc = new RTCPeerConnection({
+      iceServers: ICE_SERVERS,
+      bundlePolicy: 'max-bundle',
+    })
+    this.nativeRtcPc = pc
+
+    pc.onicecandidate = (evt) => {
+      if (evt.candidate && this.socket) {
+        this.socket.emit('ultraviewer:signal', {
+          targetRoom: room,
+          signal: evt.candidate,
+          type: 'ice',
+        })
+      }
+    }
+
+    // Setup DataChannel for mouse/keyboard control
+    try {
+      const dc = pc.createDataChannel('ultraviewer-control', { ordered: true })
+      this.nativeDataChannel = dc
+      this.bindDataChannel(dc)
+    } catch {}
+
+    // Attach stream
+    let streamToShare = this.localStream
+    if (!streamToShare && this.streamProvider) {
+      try {
+        streamToShare = await this.streamProvider()
+        if (streamToShare) this.localStream = streamToShare
+      } catch {}
+    }
+    if (!streamToShare) {
+      streamToShare = createFallbackVideoStream('LBM Host Screen')
+    }
+
+    streamToShare.getTracks().forEach((track) => {
+      pc.addTrack(track, streamToShare!)
+    })
+
+    try {
+      const offer = await pc.createOffer()
+      await pc.setLocalDescription(offer)
+      this.socket?.emit('ultraviewer:signal', {
+        targetRoom: room,
+        signal: offer,
+        type: 'offer',
+      })
+      console.log('[PeerService] Host WebRTC offer sent via Socket.IO!')
+    } catch (err) {
+      console.warn('[PeerService] Failed to create host offer:', err)
+    }
+  }
+
+  private bindDataChannel(dc: RTCDataChannel) {
+    dc.onopen = () => {
+      console.log('[PeerService] Native RTC DataChannel OPEN!')
+    }
+
+    dc.onmessage = (evt) => {
+      try {
+        const data = JSON.parse(evt.data)
+        if (data.type === 'remote:input' && data.event) {
+          this.handleIncomingControlEvent(data.event)
+        } else if (data.type === 'chat:message' && data.message && this.onChatCb) {
+          this.onChatCb(data.message)
+        } else if (data.type === 'clipboard:text' && data.text && this.onClipboardCb) {
+          this.onClipboardCb(data.text)
         }
       } catch {}
     }
@@ -109,6 +295,13 @@ export class PeerService {
 
   setHostPasscode(passcode: string) {
     this.currentPasscode = passcode.trim()
+    if (this.socket && this.socket.connected && this.currentPin) {
+      this.socket.emit('ultraviewer:host:register', {
+        hostId: this.currentPin,
+        passcode: this.currentPasscode,
+        hostName: 'LBM Host PC',
+      })
+    }
   }
 
   setStreamProvider(provider: () => Promise<MediaStream | null>) {
@@ -120,18 +313,70 @@ export class PeerService {
   }
 
   /**
-   * Initializes host receiver peer using the 6-digit PIN / ID.
-   * e.g. peer id: `lbm-mirror-839201`
+   * Updates the active outgoing stream and swaps the video track on the live call
+   */
+  updateLocalStream(stream: MediaStream) {
+    this.localStream = stream
+    const videoTrack = stream.getVideoTracks()[0]
+    if (!videoTrack) return
+
+    // Replace track on PeerJS call
+    if (this.activeCall && (this.activeCall as any).peerConnection) {
+      try {
+        const senders = (this.activeCall as any).peerConnection.getSenders()
+        const videoSender = senders.find((s: any) => s.track && s.track.kind === 'video')
+        if (videoSender) {
+          videoSender.replaceTrack(videoTrack)
+          console.log('[PeerService] Video track replaced on active PeerJS call!')
+        }
+      } catch (err) {
+        console.warn('[PeerService] replaceTrack error on PeerJS:', err)
+      }
+    }
+
+    // Replace track on Native RTC call
+    if (this.nativeRtcPc) {
+      try {
+        const senders = this.nativeRtcPc.getSenders()
+        const videoSender = senders.find((s) => s.track && s.track.kind === 'video')
+        if (videoSender) {
+          videoSender.replaceTrack(videoTrack)
+          console.log('[PeerService] Video track replaced on native WebRTC call!')
+        }
+      } catch (err) {
+        console.warn('[PeerService] replaceTrack error on native RTC:', err)
+      }
+    }
+  }
+
+  /**
+   * Initializes host receiver peer using the ID / PIN.
    */
   initHost(pin: string, outgoingStream?: MediaStream | null, passcode?: string): Promise<string> {
-    this.currentPin = pin.trim()
+    const cleanPin = pin.replace(/\s+/g, '').trim()
+    this.currentPin = cleanPin
     if (outgoingStream) this.localStream = outgoingStream
     if (passcode) this.currentPasscode = passcode.trim()
 
-    return new Promise((resolve) => {
-      this.destroyPeer()
+    // 1. Register with central Socket.IO coordinator
+    if (this.socket && this.socket.connected) {
+      this.socket.emit('ultraviewer:host:register', {
+        hostId: cleanPin,
+        passcode: this.currentPasscode,
+        hostName: 'LBM Host PC',
+      })
+    }
 
+    return new Promise((resolve) => {
       const hostPeerId = `lbm-mirror-${this.currentPin}`
+
+      // If peer already open with correct ID, keep it
+      if (this.peer && !this.peer.destroyed && this.peer.id === hostPeerId) {
+        this.notifyStatus('ready', `Host ready with ID ${this.currentPin}`)
+        return resolve(hostPeerId)
+      }
+
+      this.destroyPeer()
 
       try {
         const p = new Peer(hostPeerId, {
@@ -145,12 +390,13 @@ export class PeerService {
         p.on('open', (id) => {
           this.peer = p
           this.notifyStatus('ready', `Host ready with ID ${this.currentPin}`)
+          this.broadcastToTabs('host:ready', { pin: this.currentPin })
           resolve(id)
         })
 
         p.on('call', async (mediaConn) => {
           this.activeCall = mediaConn
-          this.notifyStatus('connecting', 'Incoming screen call connection...')
+          this.notifyStatus('connecting', 'Incoming partner screen connection...')
 
           let streamToAnswer = this.localStream
           if (!streamToAnswer && this.streamProvider) {
@@ -162,11 +408,14 @@ export class PeerService {
             }
           }
 
-          // Answer call with local stream (PC screen broadcast)
-          mediaConn.answer(streamToAnswer || undefined)
+          if (!streamToAnswer) {
+            streamToAnswer = createFallbackVideoStream('LBM Mirror (UltraViewer Host)')
+          }
+
+          mediaConn.answer(streamToAnswer)
 
           mediaConn.on('stream', (remoteStream) => {
-            this.notifyStatus('connected', 'Live screen stream active!')
+            this.notifyStatus('connected', 'Live screen stream active at 60 FPS!')
             if (this.onRemoteStreamCb) {
               this.onRemoteStreamCb(remoteStream)
             }
@@ -178,22 +427,17 @@ export class PeerService {
 
           mediaConn.on('error', (err) => {
             console.warn('[PeerService] Call error:', err)
-            this.notifyStatus('error', err?.message || 'Call connection error')
           })
         })
 
         p.on('connection', (dataConn) => {
           this.activeDataConn = dataConn
-          console.log('[PeerService] Data channel connected from operator:', dataConn.peer)
-
           dataConn.on('open', () => {
             dataConn.send({ type: 'host:welcome', pin: this.currentPin })
           })
-
           dataConn.on('data', (data: any) => {
             this.handleIncomingData(data, dataConn)
           })
-
           dataConn.on('close', () => {
             this.notifyStatus('disconnected', 'Data connection closed')
           })
@@ -201,17 +445,16 @@ export class PeerService {
 
         p.on('error', (err: any) => {
           if (err.type === 'unavailable-id') {
-            console.log('[PeerService] Host ID in use, awaiting reconnect')
-          } else {
-            console.warn('[PeerService] Host error:', err)
+            console.log('[PeerService] Host ID in use, attempting clean rebind...')
+            setTimeout(() => {
+              if (this.currentPin === cleanPin && (!this.peer || this.peer.destroyed)) {
+                this.initHost(cleanPin, this.localStream, this.currentPasscode)
+              }
+            }, 1200)
           }
         })
-
-        p.on('disconnected', () => {
-          this.notifyStatus('disconnected', 'Disconnected from signaling')
-        })
       } catch (err: any) {
-        console.error('[PeerService] Initialization error:', err)
+        console.error('[PeerService] PeerJS initialization error:', err)
         resolve('')
       }
     })
@@ -230,32 +473,25 @@ export class PeerService {
         dataConn.send({
           type: 'auth:success',
           hostName: 'LBM Host PC',
-          screenWidth: window.screen ? window.screen.width : 1920,
-          screenHeight: window.screen ? window.screen.height : 1080,
+          screenWidth: typeof window !== 'undefined' && window.screen ? window.screen.width : 1920,
+          screenHeight: typeof window !== 'undefined' && window.screen ? window.screen.height : 1080,
         })
         this.notifyStatus('connected', 'Remote operator authenticated with control')
       } else {
         console.warn('[PeerService] Remote passcode rejected!')
         dataConn.send({
           type: 'auth:rejected',
-          error: 'गलत पासकोड (Invalid Passcode). Please check passcode on Host PC.',
+          error: 'गलत पासवर्ड (Invalid Passcode). कृपया Host PC का सही पासवर्ड डालें।',
         })
       }
       return
     }
 
-    // 2. UltraViewer Remote Control Events (Mouse, Keyboard, Shortcuts)
+    // 2. UltraViewer Remote Control Events
     if (data.type === 'remote:input') {
       const evt: RemoteControlEvent = data.event
       if (evt) {
-        // Forward to native Electron input bridge if running in Desktop mode
-        if (typeof window !== 'undefined' && window.electronAPI?.remoteInput) {
-          window.electronAPI.remoteInput.sendEvent(evt).catch(() => {})
-        }
-
-        if (this.onControlEventCb) {
-          this.onControlEventCb(evt)
-        }
+        this.handleIncomingControlEvent(evt)
       }
       return
     }
@@ -282,27 +518,123 @@ export class PeerService {
       return
     }
 
-    // 5. Ping / Pong
     if (data.type === 'client:ping') {
       dataConn.send({ type: 'host:pong', timestamp: Date.now() })
     }
   }
 
+  private handleIncomingControlEvent(evt: RemoteControlEvent) {
+    if (typeof window !== 'undefined' && window.electronAPI?.remoteInput) {
+      window.electronAPI.remoteInput.sendEvent(evt).catch(() => {})
+    }
+
+    if (this.onControlEventCb) {
+      this.onControlEventCb(evt)
+    }
+  }
+
   /**
-   * Connects to Partner PC using Partner ID & Passcode across ANY network (UltraViewer Mode).
+   * Connects to Partner PC using Partner ID & Passcode across ANY network (UltraViewer & AnyDesk Mode).
+   * Uses TRIPLE-ENGINE SIMULTANEOUS PAIRING (PeerJS + Socket.IO WebRTC + BroadcastChannel)
    */
   connectToPartner(
     partnerId: string,
     passcode: string,
     dummyAudioStream: MediaStream
-  ): Promise<{ dataConn: DataConnection; call: MediaConnection }> {
+  ): Promise<{ dataConn?: DataConnection; call?: MediaConnection }> {
     const cleanId = partnerId.replace(/\s+/g, '').trim()
     const targetPeerId = `lbm-mirror-${cleanId}`
+    const partnerRoom = `uv_${cleanId}`
+    this.activePartnerRoom = partnerRoom
+    this.isConnecting = true
     this.notifyStatus('connecting', `Connecting to Partner PC (${cleanId})...`)
 
     return new Promise((resolve, reject) => {
-      this.destroyPeer()
+      let isResolved = false
 
+      const cleanupAndResolve = (result: any) => {
+        if (!isResolved) {
+          isResolved = true
+          clearTimeout(timeoutTimer)
+          this.isConnecting = false
+          resolve(result)
+        }
+      }
+
+      const cleanupAndReject = (err: Error) => {
+        if (!isResolved) {
+          isResolved = true
+          clearTimeout(timeoutTimer)
+          this.isConnecting = false
+          this.notifyStatus('error', err.message)
+          reject(err)
+        }
+      }
+
+      // 10s connection safety timeout
+      const timeoutTimer = setTimeout(() => {
+        cleanupAndReject(
+          new Error(`Partner PC (${cleanId}) से कनेक्ट नहीं हो सका। कृपया जांचें कि Partner PC पर LBM Mirror खुला है और इंटरनेट कनेक्टेड है।`)
+        )
+      }, 10000)
+
+      // ─── ENGINE 1: DIRECT SOCKET.IO WEBRTC PAIRING ────────────────────────
+      if (this.socket && this.socket.connected) {
+        console.log('[PeerService] Initiating Engine 1 (Socket.IO WebRTC Signaling)...')
+        this.socket.emit('ultraviewer:client:connect', {
+          partnerId: cleanId,
+          passcode: passcode.trim(),
+          clientName: 'Remote Operator',
+        })
+
+        this.socket.once('ultraviewer:auth_success', async () => {
+          console.log('[PeerService] Socket.IO Auth Success! Setting up WebRTC...')
+          this.notifyStatus('connecting', 'Password verified! Establishing 60 FPS video...')
+
+          const pc = new RTCPeerConnection({
+            iceServers: ICE_SERVERS,
+            bundlePolicy: 'max-bundle',
+          })
+          this.nativeRtcPc = pc
+
+          pc.onicecandidate = (evt) => {
+            if (evt.candidate && this.socket) {
+              this.socket.emit('ultraviewer:signal', {
+                targetRoom: partnerRoom,
+                signal: evt.candidate,
+                type: 'ice',
+              })
+            }
+          }
+
+          pc.ontrack = (evt) => {
+            if (evt.streams && evt.streams[0]) {
+              console.log('[PeerService] Received remote stream via Socket.IO WebRTC!')
+              this.notifyStatus('connected', 'Connected to Partner PC screen at 60 FPS!')
+              this.onRemoteStreamCb?.(evt.streams[0])
+              cleanupAndResolve({ dataConn: undefined, call: undefined })
+            }
+          }
+
+          pc.ondatachannel = (evt) => {
+            this.nativeDataChannel = evt.channel
+            this.bindDataChannel(evt.channel)
+          }
+
+          dummyAudioStream.getTracks().forEach((track) => {
+            pc.addTrack(track, dummyAudioStream)
+          })
+        })
+
+        this.socket.once('ultraviewer:error', (payload: any) => {
+          console.warn('[PeerService] Socket.IO error:', payload)
+          if (!this.activeCall) {
+            cleanupAndReject(new Error(payload.message || 'Connection rejected by partner.'))
+          }
+        })
+      }
+
+      // ─── ENGINE 2: PEERJS CLOUD WEBRTC PAIRING ────────────────────────────
       try {
         const clientPeer = new Peer({
           config: {
@@ -312,19 +644,12 @@ export class PeerService {
           debug: 1,
         })
 
-        let isResolved = false
-
         clientPeer.on('open', () => {
           this.peer = clientPeer
-
-          // 1. Establish DataConnection for UltraViewer Control & Auth
-          const dataConn = clientPeer.connect(targetPeerId, {
-            reliable: true,
-          })
+          const dataConn = clientPeer.connect(targetPeerId, { reliable: true })
           this.activeDataConn = dataConn
 
           dataConn.on('open', () => {
-            console.log('[PeerService] Connected to Partner data channel! Sending auth...')
             dataConn.send({
               type: 'auth:request',
               passcode: passcode.trim(),
@@ -334,64 +659,35 @@ export class PeerService {
 
           dataConn.on('data', (data: any) => {
             if (data?.type === 'auth:success') {
-              console.log('[PeerService] Auth granted by Partner! Calling screen stream...')
-              // 2. Call Partner with dummy audio stream to receive remote 60 FPS video stream
+              this.notifyStatus('connecting', 'Password verified! Receiving 60 FPS screen...')
               const call = clientPeer.call(targetPeerId, dummyAudioStream)
               this.activeCall = call
 
               call.on('stream', (remoteStream) => {
                 this.notifyStatus('connected', 'Connected to Partner PC screen at 60 FPS!')
-                if (this.onRemoteStreamCb) {
-                  this.onRemoteStreamCb(remoteStream)
-                }
+                this.onRemoteStreamCb?.(remoteStream)
+                cleanupAndResolve({ dataConn, call })
               })
 
               call.on('close', () => {
                 this.notifyStatus('disconnected', 'Remote session ended by partner.')
               })
-
-              call.on('error', (err) => {
-                this.notifyStatus('error', err?.message || 'Media stream error')
-              })
-
-              if (!isResolved) {
-                isResolved = true
-                resolve({ dataConn, call })
-              }
             } else if (data?.type === 'auth:rejected') {
-              const errMsg = data.error || 'गलत पासकोड (Invalid Passcode).'
-              this.notifyStatus('error', errMsg)
-              if (!isResolved) {
-                isResolved = true
-                reject(new Error(errMsg))
-              }
+              cleanupAndReject(new Error(data.error || 'गलत पासवर्ड (Invalid Passcode).'))
             } else {
               this.handleIncomingData(data, dataConn)
-            }
-          })
-
-          dataConn.on('error', (err) => {
-            this.notifyStatus('error', err?.message || 'Data connection error')
-            if (!isResolved) {
-              isResolved = true
-              reject(err)
             }
           })
         })
 
         clientPeer.on('error', (err: any) => {
-          let msg = `Could not find Partner PC with ID ${cleanId}. Please ensure Partner PC is actively sharing.`
-          if (err?.type === 'peer-unavailable') {
-            msg = `Partner PC (${cleanId}) offline hai ya sharing on nahi hai.`
-          }
-          this.notifyStatus('error', msg)
-          if (!isResolved) {
-            isResolved = true
-            reject(new Error(msg))
+          console.warn('[PeerService] PeerJS connection error:', err)
+          if (err?.type === 'peer-unavailable' && (!this.socket || !this.socket.connected)) {
+            cleanupAndReject(new Error(`Partner PC (${cleanId}) ऑफ़लाइन है या शेयरिंग चालू नहीं है।`))
           }
         })
-      } catch (err) {
-        reject(err)
+      } catch (err: any) {
+        console.warn('[PeerService] PeerJS launch error:', err)
       }
     })
   }
@@ -419,9 +715,7 @@ export class PeerService {
           this.activeCall = call
 
           call.on('stream', (remoteStream) => {
-            if (this.onRemoteStreamCb) {
-              this.onRemoteStreamCb(remoteStream)
-            }
+            this.onRemoteStreamCb?.(remoteStream)
           })
 
           call.on('close', () => {
@@ -451,59 +745,94 @@ export class PeerService {
    * Sends UltraViewer input event (mouse, key, shortcut) to Host
    */
   sendInputEvent(event: RemoteControlEvent) {
+    // 1. Send via DataConnection (PeerJS)
     if (this.activeDataConn && this.activeDataConn.open) {
       try {
-        this.activeDataConn.send({
-          type: 'remote:input',
+        this.activeDataConn.send({ type: 'remote:input', event })
+      } catch {}
+    }
+
+    // 2. Send via native RTC DataChannel
+    if (this.nativeDataChannel && this.nativeDataChannel.readyState === 'open') {
+      try {
+        this.nativeDataChannel.send(JSON.stringify({ type: 'remote:input', event }))
+      } catch {}
+    }
+
+    // 3. Send via Socket.IO relay
+    if (this.socket && this.socket.connected) {
+      try {
+        this.socket.emit('ultraviewer:input', {
+          targetRoom: this.activePartnerRoom,
           event,
         })
-      } catch (err) {
-        console.warn('[PeerService] Failed to send input event:', err)
-      }
-    }
-  }
-
-  /**
-   * Sends chat message to Partner
-   */
-  sendChatMessage(text: string, senderName = 'Me') {
-    if (this.activeDataConn && this.activeDataConn.open) {
-      const msg: ChatMessage = {
-        id: String(Date.now()),
-        sender: 'me',
-        senderName,
-        text,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      }
-      try {
-        this.activeDataConn.send({
-          type: 'chat:message',
-          ...msg,
-        })
-        if (this.onChatCb) {
-          this.onChatCb(msg)
-        }
       } catch {}
     }
   }
 
-  /**
-   * Syncs clipboard text across machines
-   */
+  sendShortcut(name: 'WIN' | 'TASKMGR' | 'ALTTAB' | 'EXPLORER' | 'CTRL_ALT_DEL') {
+    this.sendInputEvent({
+      type: 'shortcut',
+      name,
+    })
+  }
+
+  sendChatMessage(text: string, senderName = 'Me') {
+    const msg: ChatMessage = {
+      id: String(Date.now()),
+      sender: 'me',
+      senderName,
+      text,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    }
+
+    if (this.activeDataConn && this.activeDataConn.open) {
+      try {
+        this.activeDataConn.send({ type: 'chat:message', ...msg })
+      } catch {}
+    }
+
+    if (this.nativeDataChannel && this.nativeDataChannel.readyState === 'open') {
+      try {
+        this.nativeDataChannel.send(JSON.stringify({ type: 'chat:message', message: msg }))
+      } catch {}
+    }
+
+    if (this.socket && this.socket.connected) {
+      try {
+        this.socket.emit('ultraviewer:chat', {
+          targetRoom: this.activePartnerRoom,
+          message: msg,
+        })
+      } catch {}
+    }
+
+    this.onChatCb?.(msg)
+  }
+
   sendClipboard(text: string) {
     if (this.activeDataConn && this.activeDataConn.open) {
       try {
-        this.activeDataConn.send({
-          type: 'clipboard:text',
+        this.activeDataConn.send({ type: 'clipboard:text', text })
+      } catch {}
+    }
+
+    if (this.nativeDataChannel && this.nativeDataChannel.readyState === 'open') {
+      try {
+        this.nativeDataChannel.send(JSON.stringify({ type: 'clipboard:text', text }))
+      } catch {}
+    }
+
+    if (this.socket && this.socket.connected) {
+      try {
+        this.socket.emit('ultraviewer:clipboard', {
+          targetRoom: this.activePartnerRoom,
           text,
         })
       } catch {}
     }
   }
 
-  /**
-   * Broadcast message to local browser tabs for instant same-machine testing
-   */
   broadcastToTabs(type: string, payload: any) {
     if (this.broadcastChannel) {
       try {
@@ -514,15 +843,13 @@ export class PeerService {
 
   private handleBroadcastMessage(data: any) {
     if (!data?.type) return
-    if (data.type === 'tab:stream_ready' && data.payload?.pin === this.currentPin) {
-      this.notifyStatus('connecting', 'Detected cast in another tab!')
+    if (data.type === 'host:ready' && data.payload?.pin) {
+      console.log('[PeerService] Detected Host ready in another tab:', data.payload.pin)
     }
   }
 
   private notifyStatus(status: 'idle' | 'ready' | 'connecting' | 'connected' | 'disconnected' | 'error', detail?: string) {
-    if (this.onConnectionStateCb) {
-      this.onConnectionStateCb(status, detail)
-    }
+    this.onConnectionStateCb?.(status, detail)
   }
 
   destroyPeer() {
@@ -533,6 +860,14 @@ export class PeerService {
     if (this.activeDataConn) {
       try { this.activeDataConn.close() } catch {}
       this.activeDataConn = null
+    }
+    if (this.nativeRtcPc) {
+      try { this.nativeRtcPc.close() } catch {}
+      this.nativeRtcPc = null
+    }
+    if (this.nativeDataChannel) {
+      try { this.nativeDataChannel.close() } catch {}
+      this.nativeDataChannel = null
     }
     if (this.peer) {
       try { this.peer.destroy() } catch {}

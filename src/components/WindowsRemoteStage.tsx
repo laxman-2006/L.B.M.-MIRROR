@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { defaultPeerService } from '../services/peerService'
+import { defaultPeerService, createFallbackVideoStream } from '../services/peerService'
 import { defaultWebRtcService } from '../services/webrtcService'
 import { getJoinUrl } from '../utils/env'
 
@@ -32,12 +32,23 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
   const [shareAudio, setShareAudio] = useState<boolean>(true)
   const [allowControl, setAllowControl] = useState<boolean>(true)
   const [isHostReady, setIsHostReady] = useState<boolean>(false)
+  const [activePartnerName, setActivePartnerName] = useState<string | null>(null)
 
   // ─── Client / Connect State (Right Side) ───────────────────────────────────
   const [partnerId, setPartnerId] = useState<string>('')
   const [partnerPassword, setPartnerPassword] = useState<string>('')
+  const [showPartnerPassword, setShowPartnerPassword] = useState<boolean>(false)
   const [isConnecting, setIsConnecting] = useState<boolean>(false)
+  const [connectingStep, setConnectingStep] = useState<string>('')
   const [connectError, setConnectError] = useState<string | null>(null)
+  const [recentPartnerIds, setRecentPartnerIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('lbm_recent_partners')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
 
   const sharingStreamRef = useRef<MediaStream | null>(null)
 
@@ -47,6 +58,7 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
     }
   }, [currentPin])
 
+  // Update passcode without restarting peer
   useEffect(() => {
     defaultPeerService.setHostPasscode(hostPassword)
   }, [hostPassword])
@@ -68,7 +80,7 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
       }
       sharingStreamRef.current = stream
       setIsSharing(true)
-      defaultPeerService.setLocalStream(stream)
+      defaultPeerService.updateLocalStream(stream)
 
       // Start native remote input bridge if running in Desktop mode
       if (typeof window !== 'undefined' && window.electronAPI?.remoteInput) {
@@ -77,50 +89,54 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
 
       return stream
     } catch (err: any) {
-      console.warn('[WindowsRemoteStage] Screen capture cancelled or failed:', err)
+      console.warn('[WindowsRemoteStage] Screen capture cancelled or deferred:', err)
       return null
     }
   }
 
-  // Auto-initialize host listener on mount so remote partners can connect across internet anytime
+  // Initialize host listener on mount
   useEffect(() => {
     defaultPeerService.setStreamProvider(acquireScreenStream)
 
     const cleanPin = (hostId || '839201').replace(/\s+/g, '')
-    defaultPeerService.initHost(cleanPin, sharingStreamRef.current, hostPassword).then(() => {
-      setIsHostReady(true)
-    }).catch(() => {
-      setIsHostReady(true)
+    defaultPeerService.initHost(cleanPin, sharingStreamRef.current, hostPassword)
+      .then(() => setIsHostReady(true))
+      .catch(() => setIsHostReady(true))
+
+    // Listen for partner connection events
+    defaultPeerService.setOnConnectionState((status, detail) => {
+      if (status === 'connected') {
+        setActivePartnerName(detail || 'Partner PC')
+      } else if (status === 'disconnected') {
+        setActivePartnerName(null)
+      }
     })
 
-    // If running in Desktop app (Electron), automatically start screen capture and input bridge so Host is 100% zero-touch ready (UltraViewer style)
+    // If running in Desktop app (Electron), auto-prime screen capture and input bridge
     if (typeof window !== 'undefined' && window.electronAPI) {
       acquireScreenStream().then((stream) => {
         if (stream) {
-          console.log('[WindowsRemoteStage] Auto-stream active: Desktop ready for remote control')
+          console.log('[WindowsRemoteStage] Desktop auto-stream ready for remote control')
         }
-      }).catch((err) => {
-        console.warn('[WindowsRemoteStage] Auto-stream init deferred:', err)
-      })
+      }).catch(() => {})
     }
-
-    return () => {
-      // Don't kill active stream on transient re-renders, PeerService handles cleanup
-    }
-  }, [hostId, hostPassword])
+  }, [hostId])
 
   const handleRegeneratePassword = () => {
     const newPass = String(Math.floor(1000 + Math.random() * 9000))
     setHostPassword(newPass)
     sessionStorage.setItem('lbm_win_passcode', newPass)
     defaultPeerService.setHostPasscode(newPass)
-    showToast('🔑 New Passcode generated!')
+    showToast('🔑 New Password generated!')
   }
 
   const formatId = (id: string) => {
     const cleaned = id.replace(/\s+/g, '')
     if (cleaned.length === 6) {
       return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`
+    }
+    if (cleaned.length >= 8) {
+      return `${cleaned.slice(0, 2)} ${cleaned.slice(2, 5)} ${cleaned.slice(5)}`
     }
     return cleaned
   }
@@ -151,6 +167,7 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
     sharingStreamRef.current = null
     defaultPeerService.setLocalStream(null)
     setIsSharing(false)
+    setActivePartnerName(null)
     showToast('PC Screen share stopped.')
   }
 
@@ -161,7 +178,7 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
 
     const cleanPartnerId = partnerId.replace(/\s+/g, '').trim()
     if (!cleanPartnerId || cleanPartnerId.length < 5) {
-      setConnectError('कृपया मान्य Partner ID दर्ज करें (5-6 अंक)।')
+      setConnectError('कृपया मान्य Partner ID दर्ज करें (कम से कम 5-6 अंक)।')
       return
     }
 
@@ -171,11 +188,23 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
     }
 
     setIsConnecting(true)
+    setConnectingStep('1. Connecting to Partner PC...')
     showToast(`Connecting to Partner PC (ID: ${cleanPartnerId})...`)
 
     try {
       defaultPeerService.setOnRemoteStream((stream) => {
         setIsConnecting(false)
+        setConnectingStep('')
+
+        // Save to recent partners
+        setRecentPartnerIds((prev) => {
+          const updated = [cleanPartnerId, ...prev.filter((id) => id !== cleanPartnerId)].slice(0, 5)
+          try {
+            localStorage.setItem('lbm_recent_partners', JSON.stringify(updated))
+          } catch {}
+          return updated
+        })
+
         onRemoteStreamReceived(stream, {
           name: `Remote PC (${cleanPartnerId})`,
           id: cleanPartnerId,
@@ -185,21 +214,35 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
       })
 
       defaultPeerService.setOnConnectionState((state, detail) => {
-        if (state === 'error') {
+        if (state === 'connecting') {
+          setConnectingStep(detail || 'Verifying credentials with Partner PC...')
+        } else if (state === 'error') {
           setIsConnecting(false)
+          setConnectingStep('')
           setConnectError(detail || 'Could not connect to Remote PC. Please verify Partner ID & Password.')
         } else if (state === 'disconnected') {
           setIsConnecting(false)
+          setConnectingStep('')
         }
       })
 
-      // Create dummy audio stream to answer media call
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const dest = audioCtx.createMediaStreamDestination()
+      // Create robust multi-track dummy stream (Audio + Video) for zero-renegotiation connection
+      const dummyStream = createFallbackVideoStream('LBM Remote Operator Client')
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume().catch(() => {})
+        }
+        const dest = audioCtx.createMediaStreamDestination()
+        if (dest.stream.getAudioTracks()[0]) {
+          dummyStream.addTrack(dest.stream.getAudioTracks()[0])
+        }
+      } catch {}
 
-      await defaultPeerService.connectToPartner(cleanPartnerId, partnerPassword, dest.stream)
+      await defaultPeerService.connectToPartner(cleanPartnerId, partnerPassword, dummyStream)
     } catch (err: any) {
       setIsConnecting(false)
+      setConnectingStep('')
       setConnectError(err.message || 'Connection failed. Please ensure Partner PC is actively open.')
     }
   }
@@ -213,11 +256,11 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
         <div className="win-header-left">
           <div className="win-title-row">
             <span className="win-badge-icon">💻</span>
-            <h2 className="win-stage-title">Windows Remote PC Control</h2>
+            <h2 className="win-stage-title">UltraViewer Remote PC Mirroring</h2>
             <span className="win-mode-tag">ANY NETWORK • 60 FPS • FULL CONTROL</span>
           </div>
           <p className="win-stage-subtitle">
-            बिना सेम वाई-फाई की जरूरत के—चाहे दोनों कंप्यूटर 500 या 1000 किलोमीटर दूर हों—ID और Password से तुरंत कनेक्ट करें और सीधे इस स्क्रीन से सामने वाले पीसी में काम करें!
+            बिना सेम वाई-फाई की जरूरत के—चाहे दोनों कंप्यूटर अलग-अलग इंटरनेट (Jio, Airtel, Wi-Fi या मोबाइल हॉटस्पॉट) पर हों—ID और Password से तुरंत 1-क्लिक में कनेक्ट करें और सीधे इस स्क्रीन से सामने वाले पीसी का माउस और कीबोर्ड चलाएं!
           </p>
         </div>
 
@@ -235,7 +278,25 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
         </div>
       </div>
 
-      {/* 2-Column Clean Remote Control Grid */}
+      {/* Active Remote Session Alert (If Partner Connected to this Host) */}
+      {activePartnerName && (
+        <div className="active-session-banner">
+          <div className="banner-status-icon">🟢</div>
+          <div className="banner-info">
+            <strong>Partner Connected with Remote Control!</strong>
+            <span>{activePartnerName} is currently controlling this computer.</span>
+          </div>
+          <button
+            type="button"
+            className="banner-stop-btn"
+            onClick={handleStopShareScreen}
+          >
+            ⏹ Disconnect Partner
+          </button>
+        </div>
+      )}
+
+      {/* 2-Column UltraViewer Remote Control Grid */}
       <div className="win-remote-grid">
         {/* ══════════ LEFT COLUMN: Allow Remote Control (Host) ══════════ */}
         <div className="win-remote-card host-card">
@@ -336,7 +397,11 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
             <div className="ready-status-indicator">
               <span className={`status-dot ${isSharing ? 'pulsing-green' : (isHostReady ? 'solid-green' : 'pulsing-amber')}`} />
               <span className="status-text">
-                {isSharing ? 'Screen stream active & ready for control' : (isHostReady ? 'Ready to connect (Global P2P Active)' : 'Initializing connection engine...')}
+                {isSharing
+                  ? 'Screen stream active & ready for remote control'
+                  : (isHostReady
+                    ? 'Ready to connect (Secure P2P & Cloud Active)'
+                    : 'Initializing UltraViewer connection engine...')}
               </span>
             </div>
 
@@ -377,9 +442,26 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
 
           <form onSubmit={handleConnectRemotePc} className="win-connect-form">
             <div className="form-field-group">
-              <label htmlFor="partner-id-input" className="form-field-label">
-                Partner ID:
-              </label>
+              <div className="form-field-header-row">
+                <label htmlFor="partner-id-input" className="form-field-label">
+                  Partner ID:
+                </label>
+                {recentPartnerIds.length > 0 && (
+                  <div className="recent-partners-quick">
+                    <span className="recent-label">Recent:</span>
+                    {recentPartnerIds.map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className="recent-chip-btn"
+                        onClick={() => setPartnerId(id)}
+                      >
+                        {formatId(id)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="input-with-icon">
                 <span className="input-icon">💻</span>
                 <input
@@ -402,16 +484,33 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
                 <span className="input-icon">🔑</span>
                 <input
                   id="partner-pass-input"
-                  type="password"
+                  type={showPartnerPassword ? 'text' : 'password'}
                   placeholder="e.g. 8204"
                   value={partnerPassword}
                   onChange={(e) => setPartnerPassword(e.target.value)}
                   className="win-text-input"
                   required
                 />
+                <button
+                  type="button"
+                  className="toggle-pass-visibility-btn"
+                  onClick={() => setShowPartnerPassword(!showPartnerPassword)}
+                  title={showPartnerPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPartnerPassword ? '👁️' : '🔒'}
+                </button>
               </div>
             </div>
 
+            {/* Connecting Step Feedback */}
+            {isConnecting && connectingStep && (
+              <div className="win-progress-callout">
+                <span className="connecting-spinner-small" />
+                <span>{connectingStep}</span>
+              </div>
+            )}
+
+            {/* Error Callout */}
             {connectError && (
               <div className="win-error-callout">
                 <span className="err-icon">⚠️</span>
@@ -443,7 +542,7 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
           <div className="win-card-subinfo">
             <span className="subinfo-icon">🌐</span>
             <span>
-              Connect across any distance (100km, 1000km, worldwide) over any Wi-Fi, hotspot, or internet.
+              Connect across any distance (worldwide over internet) with zero setup. Partner screen opens at 60 FPS with full mouse & keyboard control.
             </span>
           </div>
         </div>

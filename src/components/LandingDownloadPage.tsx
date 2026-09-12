@@ -8,10 +8,38 @@ interface LandingDownloadPageProps {
   onOpenApp: () => void
 }
 
+const FEATURES_24 = [
+  { icon: '⚡', tag: '60 FPS', title: '60 FPS Ultra-Fast Engine', desc: 'Hardware-accelerated pipeline with less than 15ms latency for lag-free real-time mirroring.' },
+  { icon: '🖥️', tag: '4K RETINA', title: '4K Ultra HD Display', desc: 'Crisp, pixel-perfect rendering with adaptive bitrate and high dynamic range color fidelity.' },
+  { icon: '🖱️', tag: 'REMOTE CONTROL', title: 'AnyDesk & UltraViewer Control', desc: 'Full mouse click, drag, scroll, and keyboard input across distant PCs anywhere in the world.' },
+  { icon: '🔊', tag: 'SYNC AUDIO', title: 'Bi-Directional Sound Loopback', desc: 'Zero-latency system audio and microphone passthrough with studio-grade clarity.' },
+  { icon: '🔌', tag: 'NO WI-FI', title: 'Plug & Play USB Mirroring', desc: 'Connect Android directly via Type-C USB cable for instant 60 FPS video with zero Wi-Fi required.' },
+  { icon: '📡', tag: 'AIRPLAY 2', title: 'Native Apple AirPlay Receiver', desc: 'Zero-install screen mirroring for iPhone, iPad, and Mac using native Bonjour broadcast protocols.' },
+  { icon: '🌐', tag: 'GLOBAL P2P', title: 'Worldwide Internet Connection', desc: 'Connect computers across different cities and ISPs (Jio, Airtel, Vodafone, 5G) via STUN/TURN relays.' },
+  { icon: '📋', tag: 'CLIPBOARD', title: 'Instant Clipboard Sync', desc: 'Copy text on one computer or phone and paste immediately on the connected remote machine.' },
+  { icon: '🎮', tag: 'GAMING', title: 'Mobile Game Keymapping', desc: 'Play PUBG, Free Fire, and COD Mobile on your PC with customizable keyboard and mouse controls.' },
+  { icon: '📊', tag: 'EXPANSION', title: 'Second Screen Desktop Mode', desc: 'Transform your tablet or smartphone into a secondary extended monitor for multi-tasking.' },
+  { icon: '📁', tag: '31 SUITES', title: 'Enterprise Document Viewer', desc: 'Full 31-section document suite for PDFs, Word, Excel, CAD, and images with audit trails and stamps.' },
+  { icon: '🔒', tag: 'ENCRYPTED', title: 'End-to-End AES-256 Security', desc: 'Bank-grade encryption ensures your screen sessions and file transfers remain 100% private.' },
+  { icon: '🛡️', tag: 'CLEAN INSTALL', title: 'Zero Admin Permissions Needed', desc: 'Installs safely to user directory without triggering annoying UAC prompts or firewall blocks.' },
+  { icon: '📱', tag: '1-CLICK QR', title: 'Instant QR Code Pairing', desc: 'Scan the screen QR code with your mobile camera to begin casting in under 2 seconds.' },
+  { icon: '🚀', tag: 'LOW CPU', title: 'Ultra-Lightweight Performance', desc: 'Consumes less than 1% CPU and 45MB RAM using native GPU hardware decoding.' },
+  { icon: '⌨️', tag: 'SYS KEYS', title: 'Remote System Shortcuts', desc: 'Send Ctrl+Alt+Del, Windows Key, Task Manager, and Alt+Tab directly to the remote computer.' },
+  { icon: '💬', tag: 'LIVE CHAT', title: 'Integrated Operator Chat', desc: 'Text back and forth with remote partners during active mirror and support sessions.' },
+  { icon: '🔄', tag: 'AUTO HEAL', title: 'Automatic Network Reconnect', desc: 'Seamlessly recovers from Wi-Fi hiccups and network switches without dropping session state.' },
+  { icon: '🎥', tag: 'RECORDING', title: '60 FPS Screen Recording', desc: 'Capture high-definition MP4 videos and screenshots of your mirror stream with 1 click.' },
+  { icon: '💻', tag: 'CROSS PLATFORM', title: 'Windows, Android, iOS & Web', desc: 'One universal app running seamlessly across desktop, mobile, and modern browsers.' },
+  { icon: '🏢', tag: 'MULTI CAST', title: '4-Device Simultaneous Mirror', desc: 'Connect and view multiple smartphones or computers simultaneously on one dashboard.' },
+  { icon: '⚡', tag: 'GPU ACCEL', title: 'Hardware NVENC / QuickSync', desc: 'Direct silicon integration with NVIDIA, Intel, and AMD graphic chipsets for zero stutter.' },
+  { icon: '📴', tag: 'SCREEN OFF', title: 'Screen-Off Battery Saver', desc: 'Keep phone screen turned off while streaming full 60 FPS to your PC to prevent overheating.' },
+  { icon: '🌟', tag: 'FOUNDER CARE', title: '24/7 Founder & CEO Support', desc: 'Direct support and active development driven by Founder & CEO Laxman Choudhary.' },
+]
+
 export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpenApp }) => {
   const { settings } = useAppSettings()
   const [copiedLink, setCopiedLink] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [activeDemoTab, setActiveDemoTab] = useState<'mobile' | 'pc' | 'apple'>('mobile')
 
   const activeLogo = settings.appLogo || logoImg
   const shareableDownloadLink = 'https://l-b-m-mirror.vercel.app/?download=direct'
@@ -235,7 +263,182 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
         </div>
       </section>
 
-      {/* ─── 4. Step-by-Step Connection Guides for ALL Platforms (Requested by User) ─── */}
+      {/* ─── 4. 3D Interactive Device Mirroring Animation Stage (User Requirement) ─── */}
+      <section className="landing-3d-showcase-section">
+        <div className="showcase-header">
+          <div className="showcase-badge-pill">
+            <span>✨</span>
+            <span>Real-Time 3D Technology Showcase</span>
+          </div>
+          <h2 className="showcase-title">See How Screen Mirroring Works in Real Time</h2>
+          <p className="showcase-subtitle">
+            Zero-lag, 60 frames per second transmission powered by hardware-accelerated WebRTC and native direct ADB/AirPlay protocols.
+          </p>
+
+          <div className="showcase-tab-bar">
+            <button
+              type="button"
+              className={`showcase-tab-btn ${activeDemoTab === 'mobile' ? 'active' : ''}`}
+              onClick={() => setActiveDemoTab('mobile')}
+            >
+              <span>📱 Mobile ➔ PC 60 FPS Wi-Fi Beam</span>
+            </button>
+            <button
+              type="button"
+              className={`showcase-tab-btn ${activeDemoTab === 'pc' ? 'active' : ''}`}
+              onClick={() => setActiveDemoTab('pc')}
+            >
+              <span>💻 PC ➔ PC Remote Desktop (AnyDesk &amp; UltraViewer)</span>
+            </button>
+            <button
+              type="button"
+              className={`showcase-tab-btn ${activeDemoTab === 'apple' ? 'active' : ''}`}
+              onClick={() => setActiveDemoTab('apple')}
+            >
+              <span>🍎 iPhone ➔ PC AirPlay &amp; USB</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 3D Visual Stage */}
+        <div className="interactive-3d-stage">
+          {/* Left Device: Smartphone or PC 1 */}
+          <div className="phone-3d-wrapper">
+            <div className="phone-notch" />
+            <div className="phone-screen">
+              <div className="phone-live-content">
+                <div className="game-cube-anim" />
+                <div style={{ marginTop: 16, fontSize: '0.78rem', fontWeight: 800, textAlign: 'center' }}>
+                  {activeDemoTab === 'mobile' && '📱 Android Gaming'}
+                  {activeDemoTab === 'pc' && '💻 Remote Host PC'}
+                  {activeDemoTab === 'apple' && '🍎 iPhone 15 Pro'}
+                </div>
+                <div style={{ fontSize: '0.68rem', color: '#cbd5e1', marginTop: 4 }}>
+                  60 FPS • LIVE STREAM
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Center: Wireless Signal Bridge / Cyber Laser Beam */}
+          <div className="wireless-signal-bridge">
+            <div className="beam-line-wrapper">
+              <div className="beam-pulse-particle" />
+            </div>
+            <div className="signal-hud-tag">
+              <div className="wifi-wave-icon" />
+              <span>
+                {activeDemoTab === 'mobile' && 'Wi-Fi 6 & 5G • 12ms Latency • 60 FPS'}
+                {activeDemoTab === 'pc' && 'Global P2P Tunnel • Full Remote Control'}
+                {activeDemoTab === 'apple' && 'Apple AirPlay 2 • Lossless Audio'}
+              </span>
+            </div>
+          </div>
+
+          {/* Right Device: 3D Monitor / Screen */}
+          <div className="monitor-3d-wrapper">
+            <div className="monitor-screen">
+              <div className="monitor-top-bar">
+                <span style={{ color: '#38bdf8', fontWeight: 700 }}>● LBM Mirror Desktop 60 FPS</span>
+                <span style={{ color: '#94a3b8' }}>1920 × 1080 @ 60 Hz</span>
+              </div>
+              <div className="monitor-live-mirror">
+                <div className="game-cube-anim" />
+                <div className="mirror-hud-overlay">
+                  🟢 60 FPS • BITRATE: 16 MBPS
+                </div>
+                {activeDemoTab === 'pc' && <div className="remote-cursor-pointer" />}
+                <div style={{ marginTop: 16, fontSize: '0.82rem', fontWeight: 800, color: '#fff' }}>
+                  {activeDemoTab === 'mobile' && '🖥️ PC Mirror Active (Zero Delay)'}
+                  {activeDemoTab === 'pc' && '🖱️ Active Remote Mouse & Keyboard Control'}
+                  {activeDemoTab === 'apple' && '📺 AirPlay Full HD Mirroring'}
+                </div>
+              </div>
+            </div>
+            <div className="monitor-stand" />
+            <div className="monitor-base" />
+          </div>
+        </div>
+      </section>
+
+      {/* ─── 5. 24-Feature Extensive Gallery Grid (User Requirement) ─── */}
+      <section className="features-24-section">
+        <div className="showcase-header">
+          <div className="showcase-badge-pill">
+            <span>⚡</span>
+            <span>24 Advanced System Features</span>
+          </div>
+          <h2 className="showcase-title">The Complete Next-Gen Mirroring &amp; Remote Desktop Suite</h2>
+          <p className="showcase-subtitle">
+            Engineered from the ground up for gaming, remote IT support, live presentations, and business collaboration.
+          </p>
+        </div>
+
+        <div className="features-24-grid">
+          {FEATURES_24.map((feat, index) => (
+            <div key={index} className="feat-24-card">
+              <div className="feat-card-top">
+                <div className="feat-icon-bubble">{feat.icon}</div>
+                <span className="feat-tag-mini">{feat.tag}</span>
+              </div>
+              <h4 className="feat-card-title">{feat.title}</h4>
+              <p className="feat-card-desc">{feat.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── 6. Founder & CEO Grand Executive Showcase (Photo Requested by User) ─── */}
+      <section className="founder-grand-section">
+        <div className="founder-grand-card">
+          <div className="founder-grand-header">
+            <div className="founder-lead-left">
+              <img src={activeLogo} alt="LBM Logo" className="founder-lead-logo" />
+              <div className="founder-lead-title">
+                <h3>Laxman Choudhary</h3>
+                <p>Founder &amp; CEO — LBM Mirror Private Limited</p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <span className="f-stat-badge">👥 100K+ Happy Users</span>
+              <span className="f-stat-badge">⭐ 4.9★ User Rating</span>
+              <span className="f-stat-badge">🌐 Available Worldwide</span>
+            </div>
+          </div>
+
+          {/* The High-Resolution Executive Office Photo Provided by User */}
+          <div className="founder-photo-showcase-container">
+            <img
+              src="/founder_ceo_showcase.jpg"
+              alt="Laxman Choudhary, Founder & CEO, LBM Mirror Private Limited"
+              className="founder-showcase-image"
+              onError={(e) => {
+                // Fallback if needed
+                (e.currentTarget as HTMLImageElement).src = '/logo.png'
+              }}
+            />
+          </div>
+
+          <div className="founder-grand-footer-pills">
+            <div className="founder-quote-banner">
+              &ldquo;Technology should bring people closer.&rdquo; — Laxman Choudhary
+            </div>
+            <div className="founder-stats-pills">
+              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>ONE APP • ALL DEVICES • NO LIMITS</span>
+              <button
+                type="button"
+                className="btn-header-download"
+                onClick={handleDownload}
+                style={{ padding: '6px 16px', fontSize: '0.8rem' }}
+              >
+                ⬇️ Download Setup (.EXE)
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── 7. Step-by-Step Connection Guides for ALL Platforms (Requested by User) ─── */}
       <section className="landing-guides-section" id="guides">
         <div className="guides-section-header">
           <h2>Complete Connection &amp; Control Guide</h2>

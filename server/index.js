@@ -39,6 +39,12 @@ const sessions = new Map()
 // socketId -> sessionId (host sessions)
 const hostSessions = new Map()
 
+// UltraViewer Remote Control Registry
+// cleanHostId (e.g. '839201') -> { socketId, passcode, hostName, lastSeen }
+const uvHosts = new Map()
+// socketId -> cleanHostId
+const uvSocketToHost = new Map()
+
 function generatePin() {
   return String(Math.floor(100000 + Math.random() * 900000))
 }
@@ -481,9 +487,100 @@ io.on('connection', (socket) => {
     socket.to(sessionId).emit('webrtc:ice', { candidate })
   })
 
+  // ─── UltraViewer Remote PC Direct Signaling ────────────────────────
+  socket.on('ultraviewer:host:register', ({ hostId, passcode, hostName }) => {
+    const cleanId = String(hostId || '').replace(/\s+/g, '').trim()
+    if (!cleanId) return
+    const room = `uv_${cleanId}`
+    socket.join(room)
+    uvHosts.set(cleanId, {
+      socketId: socket.id,
+      passcode: String(passcode || '').trim(),
+      hostName: hostName || 'LBM Host PC',
+      lastSeen: Date.now(),
+    })
+    uvSocketToHost.set(socket.id, cleanId)
+    console.log(`[UltraViewer] Host registered: ID=${cleanId} (Room: ${room})`)
+    socket.emit('ultraviewer:registered', { success: true, hostId: cleanId })
+  })
+
+  socket.on('ultraviewer:client:connect', ({ partnerId, passcode, clientName }) => {
+    const cleanId = String(partnerId || '').replace(/\s+/g, '').trim()
+    console.log(`[UltraViewer] Client requesting connection to Partner ID: ${cleanId}`)
+    const host = uvHosts.get(cleanId)
+
+    if (!host) {
+      socket.emit('ultraviewer:error', {
+        message: `Partner PC (${cleanId}) ऑफ़लाइन है या शेयरिंग चालू नहीं है। कृपया Partner PC पर चेक करें।`,
+      })
+      return
+    }
+
+    const expectedPass = host.passcode
+    const givenPass = String(passcode || '').trim()
+    if (expectedPass && givenPass !== expectedPass) {
+      socket.emit('ultraviewer:error', {
+        message: 'गलत पासवर्ड (Invalid Passcode). कृपया Partner PC पर प्रदर्शित पासवर्ड दर्ज करें।',
+      })
+      return
+    }
+
+    const room = `uv_${cleanId}`
+    socket.join(room)
+    socket.emit('ultraviewer:auth_success', {
+      hostId: cleanId,
+      hostName: host.hostName,
+    })
+    io.to(host.socketId).emit('ultraviewer:incoming_partner', {
+      clientId: socket.id,
+      clientName: clientName || 'Remote Operator',
+    })
+    console.log(`[UltraViewer] Partner authenticated successfully into room ${room}`)
+  })
+
+  // Relay UltraViewer WebRTC Offer/Answer/ICE
+  socket.on('ultraviewer:signal', ({ targetRoom, signal, type }) => {
+    const room = targetRoom || (socket.rooms ? [...socket.rooms].find(r => r.startsWith('uv_')) : null)
+    if (room) {
+      socket.to(room).emit('ultraviewer:signal', { signal, type, senderId: socket.id })
+    }
+  })
+
+  // Relay UltraViewer Remote Mouse/Keyboard Input
+  socket.on('ultraviewer:input', ({ targetRoom, event }) => {
+    const room = targetRoom || (socket.rooms ? [...socket.rooms].find(r => r.startsWith('uv_')) : null)
+    if (room && event) {
+      socket.to(room).emit('ultraviewer:input', { event })
+    }
+  })
+
+  // Relay UltraViewer Live Chat
+  socket.on('ultraviewer:chat', ({ targetRoom, message }) => {
+    const room = targetRoom || (socket.rooms ? [...socket.rooms].find(r => r.startsWith('uv_')) : null)
+    if (room && message) {
+      socket.to(room).emit('ultraviewer:chat', { message })
+    }
+  })
+
+  // Relay UltraViewer Clipboard Sync
+  socket.on('ultraviewer:clipboard', ({ targetRoom, text }) => {
+    const room = targetRoom || (socket.rooms ? [...socket.rooms].find(r => r.startsWith('uv_')) : null)
+    if (room && text) {
+      socket.to(room).emit('ultraviewer:clipboard', { text })
+    }
+  })
+
   // ─── Cleanup on disconnect ────────────────────────────────────────
 
   socket.on('disconnect', () => {
+    const uvId = uvSocketToHost.get(socket.id)
+    if (uvId) {
+      uvHosts.delete(uvId)
+      uvSocketToHost.delete(socket.id)
+      io.to(`uv_${uvId}`).emit('ultraviewer:partner_disconnected', { hostId: uvId })
+      console.log(`[UltraViewer] Host disconnected: ID=${uvId}`)
+    }
+
     const sessionId = hostSessions.get(socket.id)
     if (sessionId) {
       const session = sessions.get(sessionId)
