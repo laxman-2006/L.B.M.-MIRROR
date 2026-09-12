@@ -13,6 +13,7 @@ import { AppInfoModal } from './components/AppInfoModal'
 import { WindowsRemoteStage } from './components/WindowsRemoteStage'
 import { ViewerSystem } from './components/viewer/ViewerSystem'
 import { LandingDownloadPage } from './components/LandingDownloadPage'
+import { triggerDirectExeDownload } from './utils/directDownload'
 import { useAppSettings } from './context/AppSettingsContext'
 import { LaptopPhoneIllustration, SleepingDeviceIllustration } from './components/IllustrationSVGs'
 import { isMobileBrowser, getJoinUrl } from './utils/env'
@@ -75,12 +76,7 @@ export default function App() {
   const [isLandingView, setIsLandingView] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
-      return (
-        params.get('page') === 'download' ||
-        params.get('download') === 'windows' ||
-        params.get('download') === 'true' ||
-        window.location.pathname === '/download'
-      )
+      return params.get('page') === 'download' || params.get('page') === 'website'
     }
     return false
   })
@@ -94,14 +90,22 @@ export default function App() {
   const [showFounderModal, setShowFounderModal] = useState<boolean>(false)
   const [showAppInfoModal, setShowAppInfoModal] = useState<boolean>(false)
 
-  // Detect ?download=windows or ?download=android parameter from WhatsApp/Telegram links
+  // Direct EXE download on ?download=windows or ?download=direct or ?download=exe
+  // User Requirement: Download Button / Link -> Direct .EXE download into default Downloads folder (NO intermediate screens)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
-      if (params.get('download') === 'windows' || params.has('download')) {
-        setDownloadModalTab('windows')
-        setShowDownloadModal(true)
-      } else if (params.get('download') === 'android') {
+      const dl = params.get('download')
+      if (
+        dl === 'windows' ||
+        dl === 'direct' ||
+        dl === 'exe' ||
+        dl === 'setup' ||
+        dl === 'true' ||
+        window.location.pathname === '/download.exe'
+      ) {
+        triggerDirectExeDownload('LBM_Mirror_Setup.exe')
+      } else if (dl === 'android') {
         setDownloadModalTab('android')
         setShowDownloadModal(true)
       }
@@ -768,6 +772,26 @@ export default function App() {
 
           <div className="nav-menu-divider" />
 
+          {/* DIRECT WINDOWS EXE DOWNLOAD BUTTON (Required: 1-Click -> Direct .EXE Download -> Downloads Folder) */}
+          <button
+            type="button"
+            className="nav-btn secondary-nav-btn direct-download-setup-btn"
+            onClick={() => triggerDirectExeDownload('LBM_Mirror_Setup.exe')}
+            title="Download Complete Windows Setup Installer (.EXE) directly to your Downloads folder"
+            style={{
+              background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(56, 189, 248, 0.2))',
+              border: '1px solid #38bdf8',
+              boxShadow: '0 0 16px rgba(56, 189, 248, 0.25)',
+            }}
+          >
+            <span className="nav-btn-icon" style={{ color: '#38bdf8', fontSize: '1.15rem' }}>
+              ⬇️
+            </span>
+            <span className="nav-btn-label" style={{ color: '#38bdf8', fontWeight: 800, letterSpacing: '0.5px' }}>
+              DOWNLOAD SETUP
+            </span>
+          </button>
+
           <button
             type="button"
             className="nav-btn secondary-nav-btn"
@@ -777,13 +801,14 @@ export default function App() {
             <span className="nav-btn-icon">
               🌐
             </span>
-            <span className="nav-btn-label">Website &amp; Download</span>
+            <span className="nav-btn-label">Website &amp; Guides</span>
           </button>
 
           <button
             type="button"
             className="nav-btn secondary-nav-btn"
             onClick={() => setShowDownloadModal(true)}
+            title="Phone Connection & Mobile QR Scanner"
           >
             <span className="nav-btn-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -793,7 +818,7 @@ export default function App() {
                 <line x1="12" y1="7" x2="12" y2="14"/>
               </svg>
             </span>
-            <span className="nav-btn-label">Download App</span>
+            <span className="nav-btn-label">Phone &amp; QR</span>
           </button>
 
           <button

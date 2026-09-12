@@ -210,24 +210,54 @@ app.get('/api/download/android', (_req, res) => {
 
 function getWindowsInstallerPath() {
   const possiblePaths = [
+    path.join(__dirname, '../release/LBM_Mirror_Setup.exe'),
+    path.join(process.cwd(), 'release/LBM_Mirror_Setup.exe'),
+    path.join(__dirname, '../release/AEROMEN_SETUP.exe'),
+    path.join(process.cwd(), 'release/AEROMEN_SETUP.exe'),
     path.join(__dirname, '../release/LBM Mirror Setup 1.0.0.exe'),
     path.join(process.cwd(), 'release/LBM Mirror Setup 1.0.0.exe'),
+    path.join(__dirname, 'downloads/LBM_Mirror_Setup.exe'),
+    path.join(process.cwd(), 'server/downloads/LBM_Mirror_Setup.exe'),
   ]
   return possiblePaths.find((p) => fs.existsSync(p))
 }
 
-app.get('/api/download/windows', (_req, res) => {
+const sendWindowsInstaller = (req, res, customFileName) => {
   const exePath = getWindowsInstallerPath()
   if (exePath) {
+    const filename = customFileName || 'LBM_Mirror_Setup.exe'
+    const stat = fs.statSync(exePath)
     res.setHeader('Content-Type', 'application/vnd.microsoft.portable-executable')
-    res.setHeader('Content-Disposition', 'attachment; filename="LBM Mirror Setup 1.0.0.exe"')
-    return res.download(exePath, 'LBM Mirror Setup 1.0.0.exe')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    res.setHeader('Content-Length', stat.size)
+    return res.download(exePath, filename)
   }
-  res.status(404).send('Windows installer not found on server.')
+  res.status(404).send('Windows setup installer not found on server.')
+}
+
+app.get([
+  '/api/download/windows',
+  '/api/download/exe',
+  '/download/setup.exe',
+  '/download/windows',
+  '/LBM_Mirror_Setup.exe',
+  '/LBM-Mirror-Setup.exe',
+  '/setup.exe',
+], (req, res) => {
+  sendWindowsInstaller(req, res, 'LBM_Mirror_Setup.exe')
 })
 
-// Mobile-friendly download landing page (auto-downloads when scanned)
+app.get('/AEROMEN_SETUP.exe', (req, res) => {
+  sendWindowsInstaller(req, res, 'AEROMEN_SETUP.exe')
+})
+
+// Mobile & Desktop download route
 app.get('/download', (req, res) => {
+  // If user requests direct Windows EXE download, immediately send the installer file
+  if (req.query.type === 'exe' || req.query.download === 'windows' || req.query.format === 'exe' || req.query.platform === 'windows') {
+    return sendWindowsInstaller(req, res, 'LBM_Mirror_Setup.exe')
+  }
+
   const joinPin = req.query.pin || ''
   const directCastUrl = joinPin ? `/?join=${joinPin}&mode=sender` : '/?mode=sender'
 

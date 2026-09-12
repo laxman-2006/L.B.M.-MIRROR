@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 import logoImg from '../assets/logo.png'
 import { useAppSettings } from '../context/AppSettingsContext'
+import { triggerDirectExeDownload } from '../utils/directDownload'
 
 interface AppDownloadModalProps {
   localIp: string
@@ -17,35 +18,19 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
   onClose,
 }) => {
   const { settings } = useAppSettings()
+  const [activeTab, setActiveTab] = useState<'windows' | 'android' | 'usb' | 'cloud'>(initialTab)
   const [copied, setCopied] = useState(false)
   const [copiedWindows, setCopiedWindows] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
-  const [activeTab, setActiveTab] = useState<'windows' | 'android' | 'usb' | 'cloud'>(initialTab)
-
-  // Resolved clean LAN IP (Never fallback to unroutable 169.254.x.x)
-  const initialValidIp =
-    localIp && !localIp.startsWith('169.254.') && localIp !== '127.0.0.1' && localIp !== 'localhost'
-      ? localIp
-      : '192.168.137.218'
-
-  const [activeIp, setActiveIp] = useState<string>(initialValidIp)
-  const [isInstallingUsb, setIsInstallingUsb] = useState<boolean>(false)
-  const [usbInstallStatus, setUsbInstallStatus] = useState<string | null>(null)
   const [usbDevices, setUsbDevices] = useState<any[]>([])
+  const [isInstallingUsb, setIsInstallingUsb] = useState(false)
+  const [usbInstallStatus, setUsbInstallStatus] = useState<string | null>(null)
 
   const isElectron = typeof window !== 'undefined' && Boolean(window.electronAPI?.isElectron)
+  const activeIp = localIp && localIp !== '127.0.0.1' ? localIp : 'localhost'
 
-  // Fetch true server network info on modal mount
+  // Query USB devices on mount if inside Electron
   useEffect(() => {
-    fetch('/api/network-info')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.ip && !data.ip.startsWith('169.254.')) {
-          setActiveIp(data.ip)
-        }
-      })
-      .catch(() => {})
-
     if (isElectron && window.electronAPI?.adb) {
       window.electronAPI.adb.getDevices().then((devs) => {
         setUsbDevices(devs || [])
@@ -57,8 +42,8 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
   const downloadUrl = `http://${activeIp}:3001/download?pin=${currentPin}`
   const apkDownloadUrl = `http://${activeIp}:3001/api/download/android`
   const cloudUrl = `https://l-b-m-mirror.vercel.app/?join=${currentPin}&mode=sender`
-  const windowsDirectUrl = settings.windowsDownloadUrl || '/api/download/windows'
-  const windowsShareLink = 'https://l-b-m-mirror.vercel.app/?download=windows'
+  const windowsDirectUrl = `http://${activeIp}:3001/api/download/windows`
+  const windowsShareLink = 'https://l-b-m-mirror.vercel.app/?download=direct'
 
   const activeQrTarget = activeTab === 'cloud' ? cloudUrl : downloadUrl
 
@@ -90,16 +75,8 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
   }
 
   const handleDownloadWindows = () => {
-    // If running on local server, trigger direct download
-    if (windowsDirectUrl) {
-      const a = document.createElement('a')
-      a.href = windowsDirectUrl
-      a.download = 'LBM Mirror Setup 1.0.0.exe'
-      a.target = '_blank'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-    }
+    // Immediate direct .exe download straight into user's Downloads folder
+    triggerDirectExeDownload('LBM_Mirror_Setup.exe', windowsDirectUrl)
   }
 
   const handle1ClickUsbInstall = async () => {

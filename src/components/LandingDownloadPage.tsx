@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import logoImg from '../assets/logo.png'
 import { useAppSettings } from '../context/AppSettingsContext'
+import { triggerDirectExeDownload } from '../utils/directDownload'
 import './LandingDownloadPage.css'
 
 interface LandingDownloadPageProps {
@@ -13,8 +14,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   const activeLogo = settings.appLogo || logoImg
-  const downloadUrl = settings.windowsDownloadUrl || 'https://l-b-m-mirror.vercel.app/LBM-Mirror-Setup.exe'
-  const shareableDownloadLink = 'https://l-b-m-mirror.vercel.app/?page=download'
+  const shareableDownloadLink = 'https://l-b-m-mirror.vercel.app/?download=direct'
 
   const showToast = (msg: string) => {
     setToastMessage(msg)
@@ -24,23 +24,17 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareableDownloadLink)
     setCopiedLink(true)
-    showToast('📋 Link copied to clipboard! Paste and send via WhatsApp/Telegram.')
+    showToast('📋 Direct download link copied to clipboard!')
     setTimeout(() => setCopiedLink(false), 2500)
   }
 
   const handleDownload = () => {
-    showToast('🚀 Downloading LBM Mirror Setup (v1.2.0 64-bit)...')
-    const link = document.createElement('a')
-    link.href = downloadUrl
-    link.download = 'LBM-Mirror-Setup-1.2.0.exe'
-    link.target = '_blank'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    showToast('🚀 Downloading Setup (.EXE) directly to your Downloads folder...')
+    triggerDirectExeDownload('LBM_Mirror_Setup.exe')
   }
 
   const whatsappShareText = encodeURIComponent(
-    `🚀 Download LBM Mirror - Free 60 FPS Screen Mirroring & UltraViewer Remote Desktop for Windows, iOS & Android:\n${shareableDownloadLink}`
+    `🚀 Download LBM Mirror Setup (.EXE) - Free 60 FPS Screen Mirroring & UltraViewer Remote Desktop for Windows:\n${shareableDownloadLink}`
   )
 
   return (
