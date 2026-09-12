@@ -41,8 +41,8 @@ export function MirrorViewer({
 
   // Rotation: 0, 90, 180, 270 degrees
   const [rotation, setRotation] = useState<number>(0)
-  // Audio state
-  const [isAudioMuted, setIsAudioMuted] = useState<boolean>(false)
+  // Audio state - start muted so Chromium autoplay is 100% guaranteed without black screen
+  const [isAudioMuted, setIsAudioMuted] = useState<boolean>(true)
   const [hasAudioTrack, setHasAudioTrack] = useState<boolean>(false)
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
@@ -64,9 +64,13 @@ export function MirrorViewer({
     (videoEl: HTMLVideoElement | null) => {
       videoRef.current = videoEl
       if (videoEl && stream) {
+        videoEl.muted = true
         videoEl.srcObject = stream
+        stream.getVideoTracks().forEach((vt) => {
+          vt.enabled = true
+        })
         videoEl.play().catch((err) => {
-          console.log('[MirrorViewer] Autoplay deferred:', err)
+          console.warn('[MirrorViewer] Autoplay deferred:', err)
         })
       }
     },
@@ -76,16 +80,17 @@ export function MirrorViewer({
   // Sync stream to video element and detect audio tracks
   useEffect(() => {
     if (videoRef.current && stream) {
+      videoRef.current.muted = true
       videoRef.current.srcObject = stream
+      stream.getVideoTracks().forEach((vt) => {
+        vt.enabled = true
+      })
       videoRef.current.play().catch(() => {})
     }
 
     if (stream) {
       const audioTracks = stream.getAudioTracks()
       setHasAudioTrack(audioTracks.length > 0)
-      if (audioTracks.length > 0) {
-        setIsAudioMuted(!audioTracks[0].enabled)
-      }
     } else {
       setHasAudioTrack(false)
     }
@@ -155,6 +160,9 @@ export function MirrorViewer({
   }
 
   const handleSurfaceMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (videoRef.current && videoRef.current.paused) {
+      videoRef.current.play().catch(() => {})
+    }
     if (!isControlActive) return
     const coords = getNormalizedCoordinates(e)
     if (!coords) return

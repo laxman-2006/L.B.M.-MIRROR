@@ -495,11 +495,21 @@ app.whenReady().then(async () => {
   // Handle desktop capture requests in Electron (screen share permission)
   session.defaultSession.setDisplayMediaRequestHandler(async (_request, callback) => {
     try {
-      const sources = await desktopCapturer.getSources({ types: ['screen', 'window'] })
-      if (sources.length > 0) {
-        callback({ video: sources[0], audio: 'loopback' })
+      // Prioritize physical display screens over arbitrary application windows
+      const sources = await desktopCapturer.getSources({ types: ['screen'] })
+      const primaryScreen =
+        sources.find(
+          (s) =>
+            s.id.startsWith('screen:') ||
+            s.name.toLowerCase().includes('entire') ||
+            s.name.toLowerCase().includes('screen 1')
+        ) || sources[0]
+
+      if (primaryScreen) {
+        callback({ video: primaryScreen })
       } else {
-        callback({})
+        const anySources = await desktopCapturer.getSources({ types: ['screen', 'window'] })
+        callback({ video: anySources[0] || undefined })
       }
     } catch (err) {
       console.error('Display media request error:', err)

@@ -11,6 +11,7 @@ import { CastScreenStage } from './components/CastScreenStage'
 import { MobileSenderView } from './components/MobileSenderView'
 import { AppInfoModal } from './components/AppInfoModal'
 import { WindowsRemoteStage } from './components/WindowsRemoteStage'
+import { ViewerSystem } from './components/viewer/ViewerSystem'
 import { useAppSettings } from './context/AppSettingsContext'
 import { LaptopPhoneIllustration, SleepingDeviceIllustration } from './components/IllustrationSVGs'
 import { isMobileBrowser, getJoinUrl } from './utils/env'
@@ -56,7 +57,7 @@ export default function App() {
 
   // ─── Platform & Navigation State (Photo 1 Reference) ───────────────────────
   const [platform, setPlatform] = useState<Platform>('ios')
-  const [activeNav, setActiveNav] = useState<'receive' | 'cast' | 'management'>('receive')
+  const [activeNav, setActiveNav] = useState<'receive' | 'cast' | 'management' | 'viewer'>('receive')
 
   // ─── Collapsible Cards State ───────────────────────────────────────────────
   const [expandedCards, setExpandedCards] = useState({
@@ -624,7 +625,7 @@ export default function App() {
   }
 
   // ─── Nav Click Handlers ────────────────────────────────────────────────────
-  const handleNavClick = (nav: 'receive' | 'cast' | 'management') => {
+  const handleNavClick = (nav: 'receive' | 'cast' | 'management' | 'viewer') => {
     if (nav === 'cast') {
       setIsAdminView(false)
       requireAuthForCasting(() => {
@@ -727,6 +728,24 @@ export default function App() {
               </svg>
             </span>
             <span className="nav-btn-label">Cast Screen</span>
+          </button>
+
+          <button
+            type="button"
+            className={`nav-btn ${activeNav === 'viewer' ? 'active' : ''}`}
+            onClick={() => handleNavClick('viewer')}
+            title="Enterprise Document Viewer & File Management Suite"
+          >
+            <span className="nav-btn-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+            </span>
+            <span className="nav-btn-label">Viewer System</span>
           </button>
 
           <div className="nav-menu-divider" />
@@ -958,7 +977,11 @@ export default function App() {
         )}
 
         {/* ── Center Stage Content Cards ── */}
-        {activeNav === 'cast' ? (
+        {activeNav === 'viewer' ? (
+          <div style={{ flex: 1, height: '100%', minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <ViewerSystem />
+          </div>
+        ) : activeNav === 'cast' ? (
           <CastScreenStage
             socket={socketRef.current}
             currentPin={currentPin}
@@ -1542,6 +1565,7 @@ export default function App() {
       {/* ════════════════════════════════════════════════════════════════════
           3. RIGHT SIDEBAR: Mirroring Device List (Photo 1 Reference)
       ════════════════════════════════════════════════════════════════════ */}
+      {activeNav !== 'viewer' && (
       <aside className="airplayer-device-list-pane">
         <div className="device-list-header">
           <h3 className="pane-title">
@@ -1615,6 +1639,7 @@ export default function App() {
           )}
         </div>
       </aside>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════════
           4. ALL MODALS
