@@ -49,6 +49,12 @@ body, html {
   user-select: none;
 }
 
+html.landing-scroll-active, body.landing-scroll-active {
+  overflow-y: auto !important;
+  height: auto !important;
+  min-height: 100vh;
+}
+
 /* ─── 3-Column App Shell ─────────────────────────────────────────────────── */
 .airplayer-shell {
   display: flex;

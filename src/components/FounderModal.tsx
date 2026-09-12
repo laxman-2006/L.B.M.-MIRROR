@@ -2,6 +2,9 @@ import React, { useState } from 'react'
 import bannerImg from '../assets/founder_banner.jpg'
 import logoImg from '../assets/logo.png'
 import { useAppSettings } from '../context/AppSettingsContext'
+import { Founder3DPhotoCarousel } from './LandingDownloadPage'
+import { cloudSyncService } from '../services/cloudSyncService'
+import './LandingDownloadPage.css'
 
 interface FounderModalProps {
   isOpen: boolean
@@ -18,69 +21,9 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
 
   if (!isOpen) return null
 
-  // Configurable contact details from dynamic admin settings
-  const emailVal = settings.email || 'lc1229501@gmail.com'
-  const instaHandle = settings.instagramHandle || '@lucky_bhambhu'
-  const instaUrl = settings.instagramUrl || 'https://instagram.com/lucky_bhambhu'
-  const ytHandle = settings.youtubeHandle || 'lucky bhambhu vlog'
-  const ytUrl = settings.youtubeUrl || 'https://youtube.com/@luckybhambhuvlog'
-  const fbHandle = settings.facebookHandle || 'LBM Mirror Official'
-  const fbUrl = settings.facebookUrl || 'https://facebook.com/LBMMirror'
-  const phoneVal = settings.phone || settings.whatsapp || '+91 9587124896'
-
   // Clean application name without "Private Limited"
   const cleanAppName = (settings.appName || 'LBM Mirror').replace(/Private Limited/gi, '').trim()
   const cleanFounderRole = `Founder & CEO — ${cleanAppName}`
-
-  /**
-   * Safely opens external links in the user's default web browser (Chrome, Edge, etc.)
-   */
-  const handleOpenLink = async (target: string, type: 'email' | 'instagram' | 'youtube' | 'facebook' | 'whatsapp') => {
-    let url = (target || '').trim()
-    if (!url) return
-
-    if (type === 'email') {
-      url = url.startsWith('mailto:') ? url : `mailto:${url}`
-    } else if (type === 'whatsapp') {
-      const digits = url.replace(/[^0-9]/g, '')
-      url = `https://wa.me/${digits || '919587124896'}`
-    } else if (type === 'instagram') {
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        const handle = url.replace(/^@/, '').replace(/^instagram\.com\//, '')
-        url = `https://www.instagram.com/${handle}/`
-      }
-    } else if (type === 'youtube') {
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        if (url.startsWith('@')) {
-          url = `https://www.youtube.com/${url}`
-        } else if (url.includes('youtube.com/')) {
-          url = `https://${url.replace(/^https?:\/\//, '')}`
-        } else {
-          url = `https://www.youtube.com/results?search_query=${encodeURIComponent(url)}`
-        }
-      }
-    } else if (type === 'facebook') {
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        const page = url.replace(/^facebook\.com\//, '')
-        url = `https://www.facebook.com/${page}`
-      }
-    } else if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('mailto:')) {
-      url = `https://${url}`
-    }
-
-    // First try Electron's native shell.openExternal
-    if (typeof window !== 'undefined' && window.electronAPI?.openExternal) {
-      try {
-        const res = await window.electronAPI.openExternal(url)
-        if (res && res.success) return
-      } catch (err) {
-        console.warn('[FounderModal] openExternal failed, falling back to window.open:', err)
-      }
-    }
-
-    // Fallback for standard browser
-    window.open(url, '_blank', 'noopener,noreferrer')
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -88,17 +31,15 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
 
     setLoading(true)
     try {
-      await fetch('/api/support/query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim() || 'Anonymous User',
-          contact: contact.trim() || 'Not Provided',
-          message: message.trim(),
-          timestamp: new Date().toISOString(),
-        }),
-      }).catch(() => null)
-
+      await cloudSyncService.submitTicket({
+        userId: `USER-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+        name: name.trim() || 'Anonymous User',
+        contact: contact.trim() || 'Not Provided',
+        category: 'Founder Direct Query',
+        deviceInfo: typeof navigator !== 'undefined' ? `${navigator.platform || 'Windows PC'} • Desktop App` : 'Windows Desktop App',
+        message: message.trim(),
+        priority: 'High',
+      })
       setSubmitted(true)
     } catch {
       setSubmitted(true)
@@ -198,105 +139,9 @@ export const FounderModal: React.FC<FounderModalProps> = ({ isOpen, onClose }) =
               </div>
             </div>
 
-            <div className="social-links-grid">
-              {/* Official Email ID */}
-              <button
-                type="button"
-                className="contact-card email-card"
-                onClick={() => handleOpenLink(emailVal, 'email')}
-                title="Send Email"
-              >
-                <div className="contact-icon email-icon">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                    <polyline points="22,6 12,13 2,6"/>
-                  </svg>
-                </div>
-                <div className="contact-text">
-                  <span className="contact-label">OFFICIAL EMAIL ID</span>
-                  <span className="contact-val">{emailVal}</span>
-                </div>
-                <span className="contact-arrow">&rarr;</span>
-              </button>
-
-              {/* Instagram Profile */}
-              <button
-                type="button"
-                className="contact-card insta-card"
-                onClick={() => handleOpenLink(instaUrl || instaHandle, 'instagram')}
-                title="Open Instagram"
-              >
-                <div className="contact-icon insta-icon">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
-                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
-                  </svg>
-                </div>
-                <div className="contact-text">
-                  <span className="contact-label">INSTAGRAM</span>
-                  <span className="contact-val">{instaHandle.startsWith('@') ? instaHandle : `@${instaHandle}`}</span>
-                </div>
-                <span className="contact-arrow">&rarr;</span>
-              </button>
-
-              {/* YouTube Account */}
-              <button
-                type="button"
-                className="contact-card youtube-card"
-                onClick={() => handleOpenLink(ytUrl || ytHandle, 'youtube')}
-                title="Open YouTube"
-              >
-                <div className="contact-icon youtube-icon">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/>
-                    <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill="currentColor"/>
-                  </svg>
-                </div>
-                <div className="contact-text">
-                  <span className="contact-label">YOUTUBE</span>
-                  <span className="contact-val">{ytHandle}</span>
-                </div>
-                <span className="contact-arrow">&rarr;</span>
-              </button>
-
-              {/* Facebook */}
-              <button
-                type="button"
-                className="contact-card fb-card"
-                onClick={() => handleOpenLink(fbUrl || fbHandle, 'facebook')}
-                title="Open Facebook"
-              >
-                <div className="contact-icon fb-icon">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
-                  </svg>
-                </div>
-                <div className="contact-text">
-                  <span className="contact-label">FACEBOOK</span>
-                  <span className="contact-val">{fbHandle}</span>
-                </div>
-                <span className="contact-arrow">&rarr;</span>
-              </button>
-
-              {/* Direct Contact / Phone Number */}
-              <button
-                type="button"
-                className="contact-card phone-card"
-                onClick={() => handleOpenLink(phoneVal, 'whatsapp')}
-                title="Call or WhatsApp"
-              >
-                <div className="contact-icon phone-icon">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                  </svg>
-                </div>
-                <div className="contact-text">
-                  <span className="contact-label">DIRECT CONTACT / WHATSAPP</span>
-                  <span className="contact-val">{phoneVal}</span>
-                </div>
-                <span className="contact-arrow">&rarr;</span>
-              </button>
+            {/* 👑 3D Interactive 5-Photo Animated Carousel with Exactly 3 Exclusive Contact Options (Email, YouTube, Instagram) */}
+            <div style={{ marginTop: 14, marginBottom: 20 }}>
+              <Founder3DPhotoCarousel />
             </div>
           </div>
 

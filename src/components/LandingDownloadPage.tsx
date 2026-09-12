@@ -317,6 +317,30 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
   const shareableDownloadLink = 'https://l-b-m-mirror.vercel.app/?download=direct'
   const currentScene = HERO_3D_SCENES[sceneIndex]
 
+  // Enable full native page scrolling for the landing page
+  useEffect(() => {
+    document.documentElement.classList.add('landing-scroll-active')
+    document.body.classList.add('landing-scroll-active')
+    const prevHtmlOverflow = document.documentElement.style.overflowY
+    const prevHtmlHeight = document.documentElement.style.height
+    const prevBodyOverflow = document.body.style.overflowY
+    const prevBodyHeight = document.body.style.height
+
+    document.documentElement.style.overflowY = 'auto'
+    document.documentElement.style.height = 'auto'
+    document.body.style.overflowY = 'auto'
+    document.body.style.height = 'auto'
+
+    return () => {
+      document.documentElement.classList.remove('landing-scroll-active')
+      document.body.classList.remove('landing-scroll-active')
+      document.documentElement.style.overflowY = prevHtmlOverflow
+      document.documentElement.style.height = prevHtmlHeight
+      document.body.style.overflowY = prevBodyOverflow
+      document.body.style.height = prevBodyHeight
+    }
+  }, [])
+
   // Dynamic 3D Scene Cycle (5.0s Interval as requested)
   useEffect(() => {
     const sceneTimer = setInterval(() => {
@@ -461,12 +485,13 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
         </div>
       </header>
 
-      {/* ─── 2. Hero Section with Dynamic 4-Scene Background & 5s Unfolding Typography ─── */}
-      <section className="landing-hero" id="hero">
-        {/* Dynamic 4-Scene Photorealistic Backgrounds */}
+      {/* ─── 2. Full-Width Edge-to-Edge Hero Banner ─── */}
+      <div className="hero-fullwidth-wrapper">
+        {/* Dynamic 4-Scene Photorealistic Backgrounds (Stretches edge-to-edge 100% full screen) */}
         <VisualBackdropScenes activeIndex={sceneIndex} />
 
-        <div className="landing-hero-left hero-high-contrast-card" style={{ position: 'relative', zIndex: 3 }}>
+        <section className="landing-hero" id="hero">
+          <div className="landing-hero-left hero-high-contrast-card" style={{ position: 'relative', zIndex: 10 }}>
           {/* Dynamic Scene Pill */}
           <div
             className="landing-pill-tag dynamic-pill-glow"
@@ -547,7 +572,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
         </div>
 
         {/* Hero Right: 3D Isometric Glass Cards + Rotating Founder Executive Showcase */}
-        <div className="landing-hero-right">
+        <div className="landing-hero-right" style={{ position: 'relative', zIndex: 10 }}>
           <div className="isometric-board-container">
             {/* Dynamic 3D Main Base Card */}
             <div
@@ -643,6 +668,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
           </div>
         </div>
       </section>
+      </div>
 
       {/* ─── 3. WhatsApp & Telegram 1-Click Share Box ─── */}
       <section className="landing-share-bar">
