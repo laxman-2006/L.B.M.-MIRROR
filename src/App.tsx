@@ -13,6 +13,7 @@ import { AppInfoModal } from './components/AppInfoModal'
 import { WindowsRemoteStage } from './components/WindowsRemoteStage'
 import { ViewerSystem } from './components/viewer/ViewerSystem'
 import { LandingDownloadPage } from './components/LandingDownloadPage'
+import { ProblemReportModal } from './components/ProblemReportModal'
 import { triggerDirectExeDownload } from './utils/directDownload'
 import { useAppSettings } from './context/AppSettingsContext'
 import { LaptopPhoneIllustration, SleepingDeviceIllustration } from './components/IllustrationSVGs'
@@ -127,6 +128,7 @@ export default function App() {
   const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(() => {
     return sessionStorage.getItem('lbm_admin_unlocked') === 'true'
   })
+  const [showSupportModal, setShowSupportModal] = useState<boolean>(false)
 
   const handleOpenAdminPanel = () => {
     if (isAdminUnlocked) {
@@ -830,6 +832,18 @@ export default function App() {
           <button
             type="button"
             className="nav-btn secondary-nav-btn"
+            onClick={() => setShowSupportModal(true)}
+            title="Report Problem or Contact Support (समस्या दर्ज करें)"
+          >
+            <span className="nav-btn-icon">
+              🛠️
+            </span>
+            <span className="nav-btn-label">24/7 Support</span>
+          </button>
+
+          <button
+            type="button"
+            className="nav-btn secondary-nav-btn"
             onClick={() => setShowFaqsModal(true)}
           >
             <span className="nav-btn-icon">
@@ -923,6 +937,29 @@ export default function App() {
                 <span className="topbar-dl-label">DOWNLOAD SETUP (.EXE)</span>
               </button>
             )}
+
+            {/* Quick 24/7 Support Desk Button */}
+            <button
+              type="button"
+              onClick={() => setShowSupportModal(true)}
+              title="24/7 LBM Support & Problem Desk (समस्या दर्ज करें)"
+              style={{
+                background: 'rgba(56, 189, 248, 0.12)',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                color: '#38bdf8',
+                borderRadius: '20px',
+                padding: '6px 14px',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <span>🛠️</span>
+              <span>Support</span>
+            </button>
 
             {currentUser ? (
               <div className="header-user-widget">
@@ -1836,6 +1873,12 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 6. User Problem & Support Desk Modal */}
+      <ProblemReportModal
+        isOpen={showSupportModal}
+        onClose={() => setShowSupportModal(false)}
+      />
     </div>
   )
 }

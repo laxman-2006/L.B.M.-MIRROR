@@ -1371,3 +1371,258 @@
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════════════
+   DYNAMIC 4-SCENE VISUAL BACKGROUNDS, 5S KINETIC TEXT & FOUNDER LIGHTBOX
+════════════════════════════════════════════════════════════════════════════ */
+
+/* 5-Second Unfolding Kinetic Typography */
+@keyframes stylishUnfold {
+  0% {
+    opacity: 0;
+    transform: translateY(26px) scale(0.96);
+    filter: blur(8px);
+  }
+  60% {
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes stylishSubUnfold {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.unfolding-text-anim {
+  animation: stylishUnfold 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.stylish-subtext-unfold {
+  animation: stylishSubUnfold 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
+}
+
+.hero-title-tagline {
+  display: block;
+  font-size: 0.88rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: #38bdf8;
+  margin-bottom: 4px;
+}
+
+/* 5-Second Progress Countdown Bar */
+.hero-5s-progress-container {
+  width: 100%;
+  max-width: 480px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 12px 0 20px;
+}
+
+.hero-5s-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8 0%, #a855f7 50%, #10b981 100%);
+  animation: progressFill 5s linear forwards;
+}
+
+@keyframes progressFill {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+/* 4 Dedicated Visual Scene Layers Behind Hero */
+.hero-visual-backdrop-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.hero-visual-scene-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-visual-scene-layer.scene-active {
+  opacity: 1;
+}
+
+/* Visual Scene Elements */
+.scene-vector-illustration {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.32;
+}
+
+/* Clickable Founder 3D Badge */
+.clickable-founder-badge {
+  cursor: pointer;
+  user-select: none;
+}
+
+.clickable-founder-badge:hover {
+  transform: perspective(1000px) scale(1.05) translateY(-4px) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 35px rgba(250, 204, 21, 0.5) !important;
+  border-color: #fbbf24 !important;
+}
+
+.click-hint-tag {
+  font-size: 0.65rem;
+  color: #38bdf8;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+/* Founder & CEO Showcase Lightbox Modal */
+.founder-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.25s ease;
+}
+
+.founder-lightbox-card {
+  background: linear-gradient(170deg, #0f172a 0%, #070d19 100%);
+  border: 2px solid rgba(250, 204, 21, 0.45);
+  border-radius: 24px;
+  max-width: 540px;
+  width: 100%;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.9), 0 0 50px rgba(250, 204, 21, 0.25);
+  padding: 24px;
+  text-align: center;
+  position: relative;
+  animation: modalScaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.founder-lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #f8fafc;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.founder-lightbox-close:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+}
+
+.founder-lightbox-header h3 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+}
+
+.founder-lightbox-header p {
+  font-size: 0.85rem;
+  color: #fbbf24;
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+
+.founder-lightbox-img-wrap {
+  margin: 16px 0;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 2px solid rgba(250, 204, 21, 0.3);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.7);
+  background: #020617;
+}
+
+.founder-lightbox-img {
+  width: 100%;
+  max-height: 440px;
+  object-fit: contain;
+  display: block;
+}
+
+.founder-lightbox-quote {
+  font-style: italic;
+  color: #cbd5e1;
+  font-size: 0.92rem;
+  margin-bottom: 16px;
+}
+
+.founder-lightbox-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.founder-cta-btn {
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.founder-cta-btn.wa {
+  background: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(22, 163, 74, 0.4);
+}
+
+.founder-cta-btn.insta {
+  background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(220, 39, 67, 0.4);
+}
+
+.founder-cta-btn.call {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #f8fafc;
+}
+

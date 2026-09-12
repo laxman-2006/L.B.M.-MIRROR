@@ -103,14 +103,19 @@ app.use('/api/auth', authRoutes)
 app.get('/api/admin/stats', getStatsAggregator(sessions))
 app.use('/api', adminRoutes)
 
-// Support query endpoint for Founder & CEO Modal
+// Support query endpoint for Founder & CEO Modal and User Problem Reporting Desk
 app.post('/api/support/query', (req, res) => {
   try {
-    const { name, contact, message, timestamp } = req.body || {}
+    const { userId, name, contact, message, category, deviceInfo, priority, timestamp } = req.body || {}
     const queryEntry = {
       id: randomUUID(),
-      name: name || 'Anonymous',
+      userId: userId || `LBM-USR-${Math.floor(10000 + Math.random() * 90000)}`,
+      name: name || 'Anonymous User',
       contact: contact || 'Not Provided',
+      category: category || 'General Support',
+      deviceInfo: deviceInfo || 'Windows / Web',
+      priority: priority || 'Normal',
+      status: 'new',
       message: message || '',
       timestamp: timestamp || new Date().toISOString(),
     }
@@ -125,8 +130,8 @@ app.post('/api/support/query', (req, res) => {
     }
     queries.unshift(queryEntry)
     fs.writeFileSync(queriesFile, JSON.stringify(queries, null, 2), 'utf-8')
-    console.log('[LBM Support Query Received]:', queryEntry)
-    res.json({ success: true, message: 'Message sent successfully to Founder & CEO!' })
+    console.log('[LBM Support Problem/Query Received]:', queryEntry)
+    res.json({ success: true, message: 'Message sent successfully to Founder & CEO!', ticketId: queryEntry.id, userId: queryEntry.userId })
   } catch (err) {
     console.error('[Support Query Error]:', err)
     res.status(500).json({ success: false, error: 'Internal server error saving query.' })

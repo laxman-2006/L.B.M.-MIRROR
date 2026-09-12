@@ -8,8 +8,12 @@ interface AdminPanelProps {
 
 interface UserQuery {
   id: string
+  userId?: string
   name: string
   contact: string
+  category?: string
+  deviceInfo?: string
+  priority?: string
   message: string
   timestamp: string
   status?: string
@@ -20,7 +24,11 @@ interface RegisteredUser {
   username: string
   email: string
   mobile?: string
-  createdAt: number
+  createdAt?: number
+  updatedAt?: number
+  hasPassword?: boolean
+  maskedPassword?: string
+  plainPassword?: string
 }
 
 interface LiveSession {
@@ -74,6 +82,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onSwitchToUserView }) =>
   const [directPhone, setDirectPhone] = useState('')
   const [directMessage, setDirectMessage] = useState('नमस्ते! LBM Mirror की ओर से आपका स्वागत है।')
 
+  // Search & Filter State
+  const [querySearch, setQuerySearch] = useState<string>('')
+  const [queryFilter, setQueryFilter] = useState<'all' | 'new' | 'resolved'>('all')
+  const [userSearch, setUserSearch] = useState<string>('')
+
+  // Password visibility map
+  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({})
+
+  // Add User Modal State
+  const [showAddUserModal, setShowAddUserModal] = useState<boolean>(false)
+  const [newUsername, setNewUsername] = useState<string>('')
+  const [newEmail, setNewEmail] = useState<string>('')
+  const [newMobile, setNewMobile] = useState<string>('')
+  const [newUserPassword, setNewUserPassword] = useState<string>('')
+  const [addingUser, setAddingUser] = useState<boolean>(false)
+
+  // Reset Password Modal State
+  const [resetTargetUser, setResetTargetUser] = useState<RegisteredUser | null>(null)
+  const [newResetPasswordInput, setNewResetPasswordInput] = useState<string>('')
+  const [resettingPassword, setResettingPassword] = useState<boolean>(false)
+
   // Image Upload State
   const [uploadingImage, setUploadingImage] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -98,19 +127,58 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onSwitchToUserView }) =>
         if (data.success) setStats(data.stats)
       }
 
-      // 2. Queries / Ideas
+      // 2. Queries / Ideas / User Problems (Merge Server + Local Storage)
+      let fetchedQueries: UserQuery[] = []
       const queriesRes = await fetch('/api/admin/queries').catch(() => null)
       if (queriesRes?.ok) {
         const data = await queriesRes.json()
-        if (data.success) setQueries(data.queries || [])
+        if (data.success && Array.isArray(data.queries)) {
+          fetchedQueries = data.queries
+        }
       }
+      try {
+        const localRaw = localStorage.getItem('lbm_local_user_queries')
+        if (localRaw) {
+          const localList: UserQuery[] = JSON.parse(localRaw)
+          for (const lq of localList) {
+            if (!fetchedQueries.some((fq) => fq.id === lq.id)) {
+              fetchedQueries.unshift(lq)
+            }
+          }
+        }
+      } catch {}
+      setQueries(fetchedQueries)
 
-      // 3. Users
+      // 3. Users Directory (Merge Server + Local Storage Registrations)
+      let fetchedUsers: RegisteredUser[] = []
       const usersRes = await fetch('/api/admin/users').catch(() => null)
       if (usersRes?.ok) {
         const data = await usersRes.json()
-        if (data.success) setUsersList(data.users || [])
+        if (data.success && Array.isArray(data.users)) {
+          fetchedUsers = data.users
+        }
       }
+      try {
+        const localAuthRaw = localStorage.getItem('lbm_auth_users')
+        if (localAuthRaw) {
+          const localAuthList = JSON.parse(localAuthRaw)
+          for (const lau of localAuthList) {
+            if (!fetchedUsers.some((fu) => (fu.email && lau.email && fu.email.toLowerCase() === lau.email.toLowerCase()) || fu.id === lau.id)) {
+              fetchedUsers.push({
+                id: lau.id || `USR-${Math.floor(1000 + Math.random() * 9000)}`,
+                username: lau.username || lau.name || (lau.email ? lau.email.split('@')[0] : 'user'),
+                email: lau.email || '',
+                mobile: lau.mobile || '',
+                createdAt: lau.createdAt || Date.now(),
+                hasPassword: Boolean(lau.password),
+                maskedPassword: lau.password ? '••••••••' : 'Not Set',
+                plainPassword: lau.password,
+              })
+            }
+          }
+        }
+      } catch {}
+      setUsersList(fetchedUsers)
 
       // 4. Images
       const imagesRes = await fetch('/api/admin/images').catch(() => null)
@@ -243,6 +311,131 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onSwitchToUserView }) =>
     } catch {
       notifyError('Failed to delete query.')
     }
+  }
+
+  // User Management Actions
+  const handleTogglePasswordView = (userId: string) => {
+    setRevealedPasswords((prev) => ({ ...prev, [userId]: !prev[userId] }))
+  }
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newEmail.trim() || !newUserPassword.trim()) {
+      notifyError('ईमेल और पासवर्ड आवश्यक हैं (Email and password are required).')
+      return
+    }
+    setAddingUser(true)
+    try {
+      const res = await fetch('/api/admin/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: newUsername.trim(),
+          email: newEmail.trim(),
+          mobile: newMobile.trim(),
+          password: newUserPassword.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        notifySuccess('✅ ' + data.message)
+        setShowAddUserModal(false)
+        setNewUsername('')
+        setNewEmail('')
+        setNewMobile('')
+        setNewUserPassword('')
+        fetchAllData()
+      } else {
+        notifyError('❌ ' + (data.error || 'Failed to create user.'))
+      }
+    } catch {
+      // Local fallback
+      try {
+        const existingRaw = localStorage.getItem('lbm_auth_users')
+        const existing = existingRaw ? JSON.parse(existingRaw) : []
+        const newUserObj = {
+          id: `USR-${Math.floor(1000 + Math.random() * 9000)}`,
+          username: newUsername.trim() || newEmail.split('@')[0],
+          email: newEmail.trim(),
+          mobile: newMobile.trim(),
+          password: newUserPassword.trim(),
+          createdAt: Date.now(),
+        }
+        existing.push(newUserObj)
+        localStorage.setItem('lbm_auth_users', JSON.stringify(existing))
+        notifySuccess('✅ यूज़र सफलतापूर्वक बनाया गया (User created)!')
+        setShowAddUserModal(false)
+        setNewUsername('')
+        setNewEmail('')
+        setNewMobile('')
+        setNewUserPassword('')
+        fetchAllData()
+      } catch {
+        notifyError('❌ Failed to save user locally.')
+      }
+    } finally {
+      setAddingUser(false)
+    }
+  }
+
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resetTargetUser || !newResetPasswordInput.trim()) return
+    setResettingPassword(true)
+    try {
+      const res = await fetch(`/api/admin/users/${resetTargetUser.id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword: newResetPasswordInput.trim() }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        notifySuccess('✅ ' + data.message)
+        setResetTargetUser(null)
+        setNewResetPasswordInput('')
+        fetchAllData()
+      } else {
+        notifyError('❌ ' + (data.error || 'Password reset failed.'))
+      }
+    } catch {
+      // Local fallback
+      try {
+        const existingRaw = localStorage.getItem('lbm_auth_users')
+        if (existingRaw) {
+          const existing = JSON.parse(existingRaw)
+          const idx = existing.findIndex((u: any) => u.id === resetTargetUser.id || u.email === resetTargetUser.email)
+          if (idx !== -1) {
+            existing[idx].password = newResetPasswordInput.trim()
+            localStorage.setItem('lbm_auth_users', JSON.stringify(existing))
+          }
+        }
+        notifySuccess(`✅ पासवर्ड सफलतापूर्वक रीसेट किया गया (${resetTargetUser.username})!`)
+        setResetTargetUser(null)
+        setNewResetPasswordInput('')
+        fetchAllData()
+      } catch {
+        notifyError('❌ Password reset failed.')
+      }
+    } finally {
+      setResettingPassword(false)
+    }
+  }
+
+  const handleDeleteUser = async (user: RegisteredUser) => {
+    if (!window.confirm(`क्या आप वाकई यूज़र "${user.username}" (${user.email}) को हटाना चाहते हैं?`)) return
+    try {
+      await fetch(`/api/admin/users/${user.id}`, { method: 'DELETE' })
+    } catch {}
+    try {
+      const existingRaw = localStorage.getItem('lbm_auth_users')
+      if (existingRaw) {
+        const existing = JSON.parse(existingRaw)
+        const filtered = existing.filter((u: any) => u.id !== user.id && u.email !== user.email)
+        localStorage.setItem('lbm_auth_users', JSON.stringify(filtered))
+      }
+    } catch {}
+    setUsersList((prev) => prev.filter((u) => u.id !== user.id))
+    notifySuccess(`✅ यूज़र ${user.username} हटा दिया गया।`)
   }
 
   // Change Admin PIN
@@ -919,9 +1112,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onSwitchToUserView }) =>
             <div className="admin-view-panel">
               <div className="panel-header-row">
                 <div>
-                  <h3 className="panel-main-title">उपयोगकर्ताओं के विचार व संदेश (User Ideas &amp; Messages)</h3>
+                  <h3 className="panel-main-title">उपयोगकर्ताओं की समस्याएँ व संदेश (User Problems &amp; Support Tickets)</h3>
                   <p className="panel-desc">
-                    यूज़र्स द्वारा Founder Modal या सपोर्ट फ़ॉर्म से भेजे गए सभी संदेश, शिकायतें व आइडिया यहाँ एकत्र होते हैं।
+                    यूज़र्स द्वारा ऐप के Support Desk या Founder Modal से भेजे गए संदेश, समस्याएं व टिकट्स।
                   </p>
                 </div>
                 <button
@@ -933,6 +1126,41 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onSwitchToUserView }) =>
                 </button>
               </div>
 
+              {/* Search & Filter Bar */}
+              <div className="admin-header-actions-row">
+                <input
+                  type="text"
+                  className="admin-search-input"
+                  placeholder="🔍 Search User ID, Name, Phone or Issue…"
+                  value={querySearch}
+                  onChange={(e) => setQuerySearch(e.target.value)}
+                />
+
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    type="button"
+                    className={`admin-filter-pill-btn ${queryFilter === 'all' ? 'active' : ''}`}
+                    onClick={() => setQueryFilter('all')}
+                  >
+                    All ({queries.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`admin-filter-pill-btn ${queryFilter === 'new' ? 'active' : ''}`}
+                    onClick={() => setQueryFilter('new')}
+                  >
+                    New ({queries.filter((q) => q.status !== 'resolved').length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`admin-filter-pill-btn ${queryFilter === 'resolved' ? 'active' : ''}`}
+                    onClick={() => setQueryFilter('resolved')}
+                  >
+                    Resolved ({queries.filter((q) => q.status === 'resolved').length})
+                  </button>
+                </div>
+              </div>
+
               {queries.length === 0 ? (
                 <div className="admin-empty-pane">
                   <span className="empty-big-icon">📬</span>
@@ -941,88 +1169,115 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onSwitchToUserView }) =>
                 </div>
               ) : (
                 <div className="queries-card-list">
-                  {queries.map((q) => (
-                    <div key={q.id} className={`query-full-card ${q.status === 'resolved' ? 'resolved-card' : ''}`}>
-                      <div className="query-card-header">
-                        <div className="user-profile-badge">
-                          <span className="user-avatar-initial">{q.name.charAt(0).toUpperCase()}</span>
-                          <div>
-                            <h4 className="user-name-title">{q.name}</h4>
-                            <span className="user-contact-tag">📞 {q.contact}</span>
+                  {queries
+                    .filter((q) => {
+                      if (queryFilter === 'new' && q.status === 'resolved') return false
+                      if (queryFilter === 'resolved' && q.status !== 'resolved') return false
+                      if (querySearch.trim()) {
+                        const term = querySearch.toLowerCase()
+                        const matchId = (q.userId || q.id || '').toLowerCase().includes(term)
+                        const matchName = (q.name || '').toLowerCase().includes(term)
+                        const matchContact = (q.contact || '').toLowerCase().includes(term)
+                        const matchMsg = (q.message || '').toLowerCase().includes(term)
+                        const matchCat = (q.category || '').toLowerCase().includes(term)
+                        return matchId || matchName || matchContact || matchMsg || matchCat
+                      }
+                      return true
+                    })
+                    .map((q) => (
+                      <div key={q.id} className={`query-full-card ${q.status === 'resolved' ? 'resolved-card' : ''}`}>
+                        <div className="query-card-header">
+                          <div className="user-profile-badge">
+                            <span className="user-avatar-initial">{(q.name || 'U').charAt(0).toUpperCase()}</span>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                <h4 className="user-name-title">{q.name}</h4>
+                                <span className="user-id-table-tag">{q.userId || `#${q.id.slice(0, 8)}`}</span>
+                                {q.category && <span className="category-pill-tag">{q.category}</span>}
+                              </div>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 3 }}>
+                                <span className="user-contact-tag">📞 {q.contact}</span>
+                                {q.deviceInfo && <span className="device-pill-tag">💻 {q.deviceInfo}</span>}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="query-status-right">
+                            <span className="query-time-badge">
+                              {new Date(q.timestamp).toLocaleString('hi-IN', {
+                                dateStyle: 'medium',
+                                timeStyle: 'short',
+                              })}
+                            </span>
+                            {q.status === 'resolved' ? (
+                              <span className="status-badge-pill green">Resolved ✅</span>
+                            ) : (
+                              <span className="status-badge-pill orange">New 💬</span>
+                            )}
                           </div>
                         </div>
 
-                        <div className="query-status-right">
-                          <span className="query-time-badge">
-                            {new Date(q.timestamp).toLocaleString('hi-IN', {
-                              dateStyle: 'medium',
-                              timeStyle: 'short',
-                            })}
-                          </span>
-                          {q.status === 'resolved' ? (
-                            <span className="status-badge-pill green">Resolved ✅</span>
-                          ) : (
-                            <span className="status-badge-pill orange">New 💬</span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="query-card-body">
-                        <p className="query-user-message">{q.message}</p>
-                      </div>
-
-                      <div className="query-card-footer">
-                        <div className="footer-actions-left">
-                          <button
-                            type="button"
-                            className="action-pill-btn wa-reply"
-                            onClick={() => handleDirectWhatsApp(q.contact, `नमस्ते ${q.name}! LBM Mirror से Laxman Choudhary: आपके संदेश के बारे में बातचीत करने हेतु संपर्क कर रहे हैं।`)}
-                          >
-                            💬 WhatsApp पर सीधे चैट करें
-                          </button>
-
-                          <button
-                            type="button"
-                            className="action-pill-btn call-reply"
-                            onClick={() => {
-                              window.location.href = `tel:${q.contact.replace(/[^0-9+]/g, '')}`
-                            }}
-                          >
-                            📞 कॉल करें
-                          </button>
+                        <div className="query-card-body">
+                          <p className="query-user-message">{q.message}</p>
                         </div>
 
-                        <div className="footer-actions-right">
-                          {q.status !== 'resolved' ? (
+                        <div className="query-card-footer">
+                          <div className="footer-actions-left">
                             <button
                               type="button"
-                              className="action-pill-btn mark-done"
-                              onClick={() => handleQueryStatus(q.id, 'resolved')}
+                              className="action-pill-btn wa-reply"
+                              onClick={() =>
+                                handleDirectWhatsApp(
+                                  q.contact,
+                                  `नमस्ते ${q.name}! LBM Mirror Founder & CEO Laxman Choudhary: आपके द्वारा भेजी गई समस्या (User ID: ${q.userId || q.id} - ${q.category || 'Support'}): "${q.message.slice(0, 80)}" के समाधान हेतु संपर्क कर रहा हूँ।`
+                                )
+                              }
                             >
-                              ✓ हल हुआ (Mark Resolved)
+                              💬 WhatsApp पर सीधे चैट करें
                             </button>
-                          ) : (
+
                             <button
                               type="button"
-                              className="action-pill-btn mark-done"
-                              onClick={() => handleQueryStatus(q.id, 'new')}
+                              className="action-pill-btn call-reply"
+                              onClick={() => {
+                                window.location.href = `tel:${q.contact.replace(/[^0-9+]/g, '')}`
+                              }}
                             >
-                              Mark as Unread
+                              📞 कॉल करें
                             </button>
-                          )}
+                          </div>
 
-                          <button
-                            type="button"
-                            className="action-pill-btn delete-btn"
-                            onClick={() => handleDeleteQuery(q.id)}
-                            title="Delete this query"
-                          >
-                            🗑️ हटाएं
-                          </button>
+                          <div className="footer-actions-right">
+                            {q.status !== 'resolved' ? (
+                              <button
+                                type="button"
+                                className="action-pill-btn mark-done"
+                                onClick={() => handleQueryStatus(q.id, 'resolved')}
+                              >
+                                ✓ हल हुआ (Mark Resolved)
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="action-pill-btn mark-done"
+                                onClick={() => handleQueryStatus(q.id, 'new')}
+                              >
+                                Mark as Unread
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              className="action-pill-btn delete-btn"
+                              onClick={() => handleDeleteQuery(q.id)}
+                              title="Delete this query"
+                            >
+                              🗑️ हटाएं
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </div>
@@ -1081,11 +1336,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onSwitchToUserView }) =>
                 )}
               </div>
 
-              {/* Section B: Registered Users */}
+              {/* Section B: Registered Users with Passwords & Management */}
               <div className="admin-feature-card">
                 <div className="card-title-row">
-                  <h4 className="card-heading">👥 कुल रजिस्टर्ड यूज़र्स की सूची (Registered Users Directory)</h4>
-                  <span className="count-tag-sm">{usersList.length} कुल यूज़र्स</span>
+                  <h4 className="card-heading">👥 कुल रजिस्टर्ड यूज़र्स व क्रेडेंशियल्स (Users &amp; Passwords Directory)</h4>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <span className="count-tag-sm">{usersList.length} कुल यूज़र्स</span>
+                    <button
+                      type="button"
+                      className="add-user-primary-btn"
+                      onClick={() => setShowAddUserModal(true)}
+                    >
+                      ➕ नया यूज़र जोड़ें
+                    </button>
+                  </div>
+                </div>
+
+                <div className="admin-header-actions-row" style={{ marginTop: 12 }}>
+                  <input
+                    type="text"
+                    className="admin-search-input"
+                    placeholder="🔍 Search Username, Email or User ID…"
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                  />
                 </div>
 
                 {usersList.length === 0 ? (
@@ -1095,34 +1369,92 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onSwitchToUserView }) =>
                     <table className="admin-data-table">
                       <thead>
                         <tr>
+                          <th>यूज़र आईडी (User ID)</th>
                           <th>यूज़रनेम</th>
                           <th>ईमेल आईडी</th>
                           <th>मोबाइल नंबर</th>
+                          <th>पासवर्ड (Password)</th>
                           <th>रजिस्ट्रेशन तारीख</th>
-                          <th>यूज़र आईडी</th>
+                          <th>कार्रवाई (Actions)</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {usersList.map((u) => (
-                          <tr key={u.id}>
-                            <td>
-                              <div className="user-table-cell">
-                                <span className="mini-user-avatar">{u.username.charAt(0).toUpperCase()}</span>
-                                <strong>{u.username}</strong>
-                              </div>
-                            </td>
-                            <td>{u.email}</td>
-                            <td>{u.mobile || 'Not set'}</td>
-                            <td>
-                              {u.createdAt ? new Date(u.createdAt).toLocaleDateString('hi-IN', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                              }) : '—'}
-                            </td>
-                            <td className="code-text">{u.id.substring(0, 8)}…</td>
-                          </tr>
-                        ))}
+                        {usersList
+                          .filter((u) => {
+                            if (!userSearch.trim()) return true
+                            const term = userSearch.toLowerCase()
+                            return (
+                              u.id.toLowerCase().includes(term) ||
+                              u.username.toLowerCase().includes(term) ||
+                              u.email.toLowerCase().includes(term) ||
+                              (u.mobile || '').includes(term)
+                            )
+                          })
+                          .map((u) => {
+                            const isRevealed = Boolean(revealedPasswords[u.id])
+                            const displayPwd = isRevealed
+                              ? (u.plainPassword || 'Secret Hash Set')
+                              : (u.maskedPassword || '••••••••')
+
+                            return (
+                              <tr key={u.id}>
+                                <td>
+                                  <span className="user-id-table-tag">#{u.id.slice(0, 8)}</span>
+                                </td>
+                                <td>
+                                  <div className="user-table-cell">
+                                    <span className="mini-user-avatar">{(u.username || 'U').charAt(0).toUpperCase()}</span>
+                                    <strong>{u.username}</strong>
+                                  </div>
+                                </td>
+                                <td>{u.email}</td>
+                                <td>{u.mobile || '—'}</td>
+                                <td>
+                                  <div className="user-password-cell">
+                                    <span>{displayPwd}</span>
+                                    <button
+                                      type="button"
+                                      className="password-view-toggle"
+                                      onClick={() => handleTogglePasswordView(u.id)}
+                                      title={isRevealed ? 'Hide Password' : 'Show Password'}
+                                    >
+                                      {isRevealed ? '🙈' : '👁️'}
+                                    </button>
+                                  </div>
+                                </td>
+                                <td>
+                                  {u.createdAt ? new Date(u.createdAt).toLocaleDateString('hi-IN', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric',
+                                  }) : '—'}
+                                </td>
+                                <td>
+                                  <div className="user-table-actions-cell">
+                                    <button
+                                      type="button"
+                                      className="user-action-btn reset-pwd"
+                                      onClick={() => {
+                                        setResetTargetUser(u)
+                                        setNewResetPasswordInput('')
+                                      }}
+                                      title="Reset Password for this user"
+                                    >
+                                      🔑 रीसेट
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="user-action-btn del-user"
+                                      onClick={() => handleDeleteUser(u)}
+                                      title="Delete user"
+                                    >
+                                      🗑️ हटाएं
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
                       </tbody>
                     </table>
                   </div>
@@ -1296,6 +1628,129 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onSwitchToUserView }) =>
           )}
         </main>
       </div>
+
+      {/* ── Add User Modal Dialog ── */}
+      {showAddUserModal && (
+        <div className="admin-modal-backdrop" onClick={() => setShowAddUserModal(false)}>
+          <div className="admin-dialog-card" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-dialog-header">
+              <h4>➕ नया यूज़र बनाएं (Create New User)</h4>
+              <p>नया खाता बनाएं जिसका विवरण सीधे ऐप और एडमिन दोनों में सक्रिय होगा।</p>
+            </div>
+
+            <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>यूज़रनेम (Username):</label>
+                <input
+                  type="text"
+                  className="admin-input-field"
+                  placeholder="उदा. rahul_sharma"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>ईमेल आईडी (Email *):</label>
+                <input
+                  type="email"
+                  required
+                  className="admin-input-field"
+                  placeholder="user@example.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>मोबाइल नंबर (Mobile):</label>
+                <input
+                  type="text"
+                  className="admin-input-field"
+                  placeholder="+91 98765 43210"
+                  value={newMobile}
+                  onChange={(e) => setNewMobile(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>पासवर्ड (Password *):</label>
+                <input
+                  type="text"
+                  required
+                  className="admin-input-field"
+                  placeholder="नया पासवर्ड दर्ज करें"
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                />
+              </div>
+
+              <div className="admin-dialog-actions">
+                <button
+                  type="button"
+                  className="dialog-cancel-btn"
+                  onClick={() => setShowAddUserModal(false)}
+                >
+                  रद्द करें
+                </button>
+                <button
+                  type="submit"
+                  className="dialog-submit-btn"
+                  disabled={addingUser}
+                >
+                  {addingUser ? 'बना रहे हैं…' : 'यूज़र बनाएं (Save)'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reset Password Modal Dialog ── */}
+      {resetTargetUser && (
+        <div className="admin-modal-backdrop" onClick={() => setResetTargetUser(null)}>
+          <div className="admin-dialog-card" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-dialog-header">
+              <h4>🔑 पासवर्ड रीसेट करें (Reset Password)</h4>
+              <p>
+                यूज़र <strong>{resetTargetUser.username}</strong> ({resetTargetUser.email}) के लिए नया पासवर्ड सेट करें।
+              </p>
+            </div>
+
+            <form onSubmit={handleResetPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>नया पासवर्ड दर्ज करें (New Password):</label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  className="admin-input-field"
+                  placeholder="कम से कम 4 अक्षर का पासवर्ड"
+                  value={newResetPasswordInput}
+                  onChange={(e) => setNewResetPasswordInput(e.target.value)}
+                />
+              </div>
+
+              <div className="admin-dialog-actions">
+                <button
+                  type="button"
+                  className="dialog-cancel-btn"
+                  onClick={() => setResetTargetUser(null)}
+                >
+                  रद्द करें
+                </button>
+                <button
+                  type="submit"
+                  className="dialog-submit-btn"
+                  disabled={resettingPassword}
+                >
+                  {resettingPassword ? 'सहेज रहे हैं…' : 'पासवर्ड अपडेट करें (Save)'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

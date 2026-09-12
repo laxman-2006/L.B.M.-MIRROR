@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { randomUUID } from 'crypto'
+import bcrypt from 'bcryptjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -81,6 +82,21 @@ function getUsers() {
     return data.users || []
   } catch {
     return []
+  }
+}
+
+function saveUsers(users) {
+  try {
+    let data = { users: [], otps: [], sessions: [] }
+    if (fs.existsSync(authDbFile)) {
+      try {
+        data = JSON.parse(fs.readFileSync(authDbFile, 'utf-8'))
+      } catch {}
+    }
+    data.users = users
+    fs.writeFileSync(authDbFile, JSON.stringify(data, null, 2), 'utf-8')
+  } catch (err) {
+    console.error('[Admin Save Users Error]:', err)
   }
 }
 
@@ -246,16 +262,93 @@ router.delete('/admin/queries/:id', (req, res) => {
   }
 })
 
-// Get Registered Users
+// Get Registered Users (Comprehensive view for Admin Panel)
 router.get('/admin/users', (_req, res) => {
   try {
     const users = getUsers().map((u) => {
-      const { passwordHash, ...safeUser } = u
-      return safeUser
+      return {
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        mobile: u.mobile || '',
+        createdAt: u.createdAt,
+        updatedAt: u.updatedAt,
+        hasPassword: Boolean(u.passwordHash),
+        maskedPassword: u.passwordHash ? '••••••••' : 'Not Set',
+      }
     })
     res.json({ success: true, count: users.length, users })
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to get users.' })
+  }
+})
+
+// Create User from Admin Panel
+router.post('/admin/users/create', async (req, res) => {
+  try {
+    const { username, email, mobile, password } = req.body || {}
+    if (!email || !password) {
+      return res.status(400).json({ success: false, error: 'Email and password are required.' })
+    }
+    const cleanEmail = email.trim().toLowerCase()
+    const users = getUsers()
+    if (users.some((u) => u.email && u.email.toLowerCase() === cleanEmail)) {
+      return res.status(400).json({ success: false, error: 'User with this email already exists.' })
+    }
+    const saltRounds = 10
+    const passwordHash = await bcrypt.hash(password, saltRounds)
+    const newUser = {
+      id: randomUUID(),
+      username: (username || cleanEmail.split('@')[0]).trim(),
+      email: cleanEmail,
+      mobile: (mobile || '').trim(),
+      passwordHash,
+      createdAt: Date.now(),
+    }
+    users.push(newUser)
+    saveUsers(users)
+    res.json({ success: true, message: 'यूज़र सफलतापूर्वक बनाया गया (User created successfully)!', user: newUser })
+  } catch (err) {
+    console.error('[Admin User Create Error]:', err)
+    res.status(500).json({ success: false, error: 'Failed to create user.' })
+  }
+})
+
+// Reset Password for User directly by Admin
+router.post('/admin/users/:id/reset-password', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { newPassword } = req.body || {}
+    if (!newPassword || newPassword.length < 4) {
+      return res.status(400).json({ success: false, error: 'New password must be at least 4 characters.' })
+    }
+    const users = getUsers()
+    const idx = users.findIndex((u) => u.id === id)
+    if (idx === -1) {
+      return res.status(404).json({ success: false, error: 'User not found.' })
+    }
+    const saltRounds = 10
+    users[idx].passwordHash = await bcrypt.hash(newPassword, saltRounds)
+    users[idx].updatedAt = Date.now()
+    saveUsers(users)
+    res.json({ success: true, message: `पासवर्ड सफलतापूर्वक अपडेट किया गया (Password updated for ${users[idx].username})!` })
+  } catch (err) {
+    console.error('[Admin Reset Password Error]:', err)
+    res.status(500).json({ success: false, error: 'Failed to reset password.' })
+  }
+})
+
+// Delete User by Admin
+router.delete('/admin/users/:id', (req, res) => {
+  try {
+    const { id } = req.params
+    const users = getUsers()
+    const filtered = users.filter((u) => u.id !== id)
+    saveUsers(filtered)
+    res.json({ success: true, message: 'यूज़र सफलतापूर्वक हटा दिया गया (User deleted).' })
+  } catch (err) {
+    console.error('[Admin Delete User Error]:', err)
+    res.status(500).json({ success: false, error: 'Failed to delete user.' })
   }
 })
 
