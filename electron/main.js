@@ -519,6 +519,12 @@ app.whenReady().then(async () => {
 
   await startInternalServer()
   setupIpcHandlers()
+  
+  // Auto-start Windows native remote input agent immediately on launch
+  defaultRemoteInputBridge.start().catch((err) => {
+    console.warn('[Main] RemoteInputBridge auto-start error:', err)
+  })
+
   createWindow()
 
   app.on('activate', () => {
@@ -527,6 +533,7 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
+  defaultRemoteInputBridge.stop()
   if (adbBridge) {
     adbBridge.stopTracking()
     adbBridge.stopMirroring()

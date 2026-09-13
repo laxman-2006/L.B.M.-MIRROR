@@ -186,6 +186,22 @@ export class PeerService {
     this.socket = socket
     if (socket) {
       this.attachSocketListeners()
+      if (socket.connected && this.currentPin) {
+        socket.emit('ultraviewer:host:register', {
+          hostId: this.currentPin,
+          passcode: this.currentPasscode,
+          hostName: 'LBM Host PC',
+        })
+      }
+      socket.on('connect', () => {
+        if (this.currentPin) {
+          socket.emit('ultraviewer:host:register', {
+            hostId: this.currentPin,
+            passcode: this.currentPasscode,
+            hostName: 'LBM Host PC',
+          })
+        }
+      })
     }
   }
 
@@ -584,6 +600,7 @@ export class PeerService {
 
   private handleIncomingControlEvent(evt: RemoteControlEvent) {
     if (typeof window !== 'undefined' && window.electronAPI?.remoteInput) {
+      window.electronAPI.remoteInput.start().catch(() => {})
       window.electronAPI.remoteInput.sendEvent(evt).catch(() => {})
     }
 
@@ -804,24 +821,27 @@ export class PeerService {
 
   /**
    * Sends remote input event (mouse, key, shortcut) to Host
+   * Uses prioritized single-channel delivery to prevent duplicate/triple click execution
    */
   sendInputEvent(event: RemoteControlEvent) {
-    // 1. Send via DataConnection (PeerJS)
+    // Priority 1: Direct WebRTC DataConnection (PeerJS)
     if (this.activeDataConn && this.activeDataConn.open) {
       try {
         this.activeDataConn.send({ type: 'remote:input', event })
+        return
       } catch {}
     }
 
-    // 2. Send via native RTC DataChannel
+    // Priority 2: Direct native RTC DataChannel
     if (this.nativeDataChannel && this.nativeDataChannel.readyState === 'open') {
       try {
         this.nativeDataChannel.send(JSON.stringify({ type: 'remote:input', event }))
+        return
       } catch {}
     }
 
-    // 3. Send via Socket.IO relay
-    if (this.socket && this.socket.connected) {
+    // Priority 3: Socket.IO relay
+    if (this.socket && this.socket.connected && this.activePartnerRoom) {
       try {
         this.socket.emit('ultraviewer:input', {
           targetRoom: this.activePartnerRoom,

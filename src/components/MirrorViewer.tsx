@@ -123,7 +123,14 @@ export function MirrorViewer({
     })
   }, [showChatDrawer])
 
-  // ─── Mouse Input Handlers for Remote Control ───────────────────────────────
+  // Auto-focus interactive surface on mount and whenever control is activated
+  useEffect(() => {
+    if (isControlActive && surfaceRef.current) {
+      surfaceRef.current.focus()
+    }
+  }, [isControlActive])
+
+  // ─── Precise Mouse Input Handlers for Ultra Remote Control ─────────────────
   const getNormalizedCoordinates = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const video = videoRef.current
     if (!video) return null
@@ -131,16 +138,45 @@ export function MirrorViewer({
     const rect = video.getBoundingClientRect()
     if (rect.width === 0 || rect.height === 0) return null
 
-    // Ensure click is within the video bounds
+    // Determine intrinsic video resolution (or fallback to standard 16:9 1920x1080)
+    const videoW = video.videoWidth || 1920
+    const videoH = video.videoHeight || 1080
+
+    const containerW = rect.width
+    const containerH = rect.height
+
+    const videoAspect = videoW / videoH
+    const containerAspect = containerW / containerH
+
+    let renderW = containerW
+    let renderH = containerH
+    let offsetX = 0
+    let offsetY = 0
+
+    // Video has object-fit: contain -> calculate exact active display box excluding black bars
+    if (containerAspect > videoAspect) {
+      // Pillarbox (black bars on left and right)
+      renderW = containerH * videoAspect
+      offsetX = (containerW - renderW) / 2
+    } else {
+      // Letterbox (black bars on top and bottom)
+      renderH = containerW / videoAspect
+      offsetY = (containerH - renderH) / 2
+    }
+
     const clientX = e.clientX
     const clientY = e.clientY
 
-    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+    const relX = clientX - rect.left - offsetX
+    const relY = clientY - rect.top - offsetY
+
+    // If clicked on black letterbox bars, ignore
+    if (relX < 0 || relX > renderW || relY < 0 || relY > renderH) {
       return null
     }
 
-    const normX = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-    const normY = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height))
+    const normX = Math.max(0, Math.min(1, relX / renderW))
+    const normY = Math.max(0, Math.min(1, relY / renderH))
     return { normX, normY }
   }, [])
 
@@ -162,6 +198,11 @@ export function MirrorViewer({
   }
 
   const handleSurfaceMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Keep surface focused so keyboard events are captured immediately
+    if (surfaceRef.current) {
+      surfaceRef.current.focus()
+    }
+
     if (videoRef.current && videoRef.current.paused) {
       videoRef.current.play().catch(() => {})
     }
@@ -192,19 +233,6 @@ export function MirrorViewer({
     })
   }
 
-  const handleSurfaceClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isControlActive) return
-    const coords = getNormalizedCoordinates(e)
-    if (!coords) return
-
-    defaultPeerService.sendInputEvent({
-      type: 'mouse:click',
-      button: 'left',
-      x: coords.normX,
-      y: coords.normY,
-    })
-  }
-
   const handleSurfaceDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isControlActive) return
     const coords = getNormalizedCoordinates(e)
@@ -219,16 +247,7 @@ export function MirrorViewer({
 
   const handleSurfaceContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault()
-    if (!isControlActive) return
-    const coords = getNormalizedCoordinates(e)
-    if (!coords) return
-
-    defaultPeerService.sendInputEvent({
-      type: 'mouse:click',
-      button: 'right',
-      x: coords.normX,
-      y: coords.normY,
-    })
+    // Right click is naturally handled via mouse:down and mouse:up with button: 'right'
   }
 
   const handleSurfaceWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -245,8 +264,12 @@ export function MirrorViewer({
   const handleSurfaceKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!isControlActive) return
 
-    // Prevent default browser shortcuts when controlling remote desktop
-    if (['Tab', 'Backspace', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.key)) {
+    // Prevent default browser hotkeys from hijacking focus while controlling remote desktop
+    const interceptedKeys = [
+      'Tab', 'Backspace', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 
+      'Space', 'Escape', 'F1', 'F3', 'F5', 'F11', 'F12'
+    ]
+    if (interceptedKeys.includes(e.key) || (e.ctrlKey && ['a', 'c', 'v', 'x', 'z', 'w', 'r', 't'].includes(e.key.toLowerCase()))) {
       e.preventDefault()
     }
 
@@ -256,7 +279,8 @@ export function MirrorViewer({
       key: e.key,
     })
 
-    if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    // If key is a printable Unicode symbol that isn't mapped to standard A-Z/0-9 virtual keys:
+    if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey && !e.code.startsWith('Key') && !e.code.startsWith('Digit')) {
       defaultPeerService.sendInputEvent({
         type: 'key:text',
         text: e.key,
@@ -425,6 +449,22 @@ export function MirrorViewer({
             <button
               type="button"
               className="toolbar-pill shortcut-pill"
+              onClick={() => handleSendShortcut('WIN_R')}
+              title="Open Run Dialog (Win+R)"
+            >
+              🚀 Run
+            </button>
+            <button
+              type="button"
+              className="toolbar-pill shortcut-pill"
+              onClick={() => handleSendShortcut('WIN_D')}
+              title="Show Desktop (Win+D)"
+            >
+              🖥️ Desktop
+            </button>
+            <button
+              type="button"
+              className="toolbar-pill shortcut-pill"
               onClick={handleSyncClipboardToRemote}
               title="Sync local clipboard text to remote PC"
             >
@@ -553,7 +593,6 @@ export function MirrorViewer({
         onMouseMove={handleSurfaceMouseMove}
         onMouseDown={handleSurfaceMouseDown}
         onMouseUp={handleSurfaceMouseUp}
-        onClick={handleSurfaceClick}
         onDoubleClick={handleSurfaceDoubleClick}
         onContextMenu={handleSurfaceContextMenu}
         onWheel={handleSurfaceWheel}

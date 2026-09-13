@@ -107,13 +107,19 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
     defaultPeerService.setOnConnectionState((status, detail) => {
       if (status === 'connected') {
         setActivePartnerName(detail || 'Partner PC')
+        if (typeof window !== 'undefined' && window.electronAPI?.remoteInput) {
+          window.electronAPI.remoteInput.start().catch(() => {})
+        }
       } else if (status === 'disconnected') {
         setActivePartnerName(null)
       }
     })
 
-    // If running in Desktop app (Electron), auto-prime screen capture and input bridge
+    // If running in Desktop app (Electron), auto-prime input bridge and screen capture immediately
     if (typeof window !== 'undefined' && window.electronAPI) {
+      if (window.electronAPI.remoteInput) {
+        window.electronAPI.remoteInput.start().catch(() => {})
+      }
       acquireScreenStream().then((stream) => {
         if (stream) {
           console.log('[WindowsRemoteStage] Desktop auto-stream ready for remote control')

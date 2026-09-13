@@ -4,18 +4,26 @@ using System.Runtime.InteropServices;
 
 public class WinUser32 {
     [DllImport("user32.dll")]
+    public static extern bool SetProcessDPIAware();
+
+    [DllImport("user32.dll")]
     public static extern bool SetCursorPos(int X, int Y);
 
     [DllImport("user32.dll")]
     public static extern void mouse_event(uint dwFlags, int dx, int dy, uint dwData, UIntPtr dwExtraInfo);
 
     [DllImport("user32.dll")]
-    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+    public static extern void keybd_event(byte bVk, ushort bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
     [DllImport("user32.dll")]
     public static extern int GetSystemMetrics(int nIndex);
 }
 "@
+
+# Ensure DPI awareness so coordinates match real physical screen pixels across scaling (100%, 125%, 150%)
+try {
+    [WinUser32]::SetProcessDPIAware() | Out-Null
+} catch {}
 
 $SM_CXSCREEN = 0
 $SM_CYSCREEN = 1
@@ -57,35 +65,71 @@ while ($true) {
                 [WinUser32]::SetCursorPos($x, $y) | Out-Null
             }
             "LC" {
-                # Left Click
+                # Left Click (optional: LC x y)
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
                 [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
                 [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
             }
             "LD" {
-                # Left Button Down
+                # Left Button Down (optional: LD x y)
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
                 [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
             }
             "LU" {
-                # Left Button Up
+                # Left Button Up (optional: LU x y)
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
                 [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
             }
             "RC" {
-                # Right Click
+                # Right Click (optional: RC x y)
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
                 [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, [UIntPtr]::Zero)
                 [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTUP, 0, 0, 0, [UIntPtr]::Zero)
             }
             "RD" {
-                # Right Button Down
+                # Right Button Down (optional: RD x y)
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
                 [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, [UIntPtr]::Zero)
             }
             "RU" {
-                # Right Button Up
+                # Right Button Up (optional: RU x y)
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
                 [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTUP, 0, 0, 0, [UIntPtr]::Zero)
             }
             "DC" {
-                # Double Click
+                # Double Click (optional: DC x y)
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
                 [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
                 [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
+                [System.Threading.Thread]::Sleep(40)
                 [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
                 [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
             }
@@ -95,11 +139,12 @@ while ($true) {
                 [WinUser32]::mouse_event($MOUSEEVENTF_WHEEL, 0, 0, [uint32]$delta, [UIntPtr]::Zero)
             }
             "C" {
-                # Type Character (e.g. C a or C H)
+                # Type Character Unicode (e.g. C a or C H or Hindi / symbols)
                 $charStr = $line.Substring(2)
                 foreach ($c in $charStr.ToCharArray()) {
-                    [WinUser32]::keybd_event(0, [byte]$c, $KEYEVENTF_UNICODE, [UIntPtr]::Zero)
-                    [WinUser32]::keybd_event(0, [byte]$c, ($KEYEVENTF_UNICODE -bor $KEYEVENTF_KEYUP), [UIntPtr]::Zero)
+                    $u16 = [uint16][char]$c
+                    [WinUser32]::keybd_event(0, $u16, $KEYEVENTF_UNICODE, [UIntPtr]::Zero)
+                    [WinUser32]::keybd_event(0, $u16, ($KEYEVENTF_UNICODE -bor $KEYEVENTF_KEYUP), [UIntPtr]::Zero)
                 }
             }
             "K" {
@@ -135,6 +180,20 @@ while ($true) {
                 [WinUser32]::keybd_event(0x5B, 0, 0, [UIntPtr]::Zero) # Win down
                 [WinUser32]::keybd_event(0x45, 0, 0, [UIntPtr]::Zero) # E down
                 [WinUser32]::keybd_event(0x45, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x5B, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+            }
+            "WIN_R" {
+                # Win+R (Run Dialog)
+                [WinUser32]::keybd_event(0x5B, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x52, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x52, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x5B, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+            }
+            "WIN_D" {
+                # Win+D (Show Desktop)
+                [WinUser32]::keybd_event(0x5B, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x44, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x44, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
                 [WinUser32]::keybd_event(0x5B, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
             }
             "METRICS" {

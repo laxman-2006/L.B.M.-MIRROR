@@ -11,6 +11,7 @@ import { CastScreenStage } from './components/CastScreenStage'
 import { MobileSenderView } from './components/MobileSenderView'
 import { AppInfoModal } from './components/AppInfoModal'
 import { WindowsRemoteStage } from './components/WindowsRemoteStage'
+import { MobileRemoteCard } from './components/MobileRemoteCard'
 import { ViewerSystem } from './components/viewer/ViewerSystem'
 import { LandingDownloadPage } from './components/LandingDownloadPage'
 import { ProblemReportModal } from './components/ProblemReportModal'
@@ -33,14 +34,19 @@ import type {
 } from './types'
 import './App.css'
 
-const shouldConnectSocket =
-  Boolean(import.meta.env.VITE_SIGNALING_SERVER) ||
-  (typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+const getSignalUrl = (): string => {
+  if (import.meta.env.VITE_SIGNALING_SERVER) {
+    return import.meta.env.VITE_SIGNALING_SERVER
+  }
+  if (typeof window !== 'undefined' && window.location) {
+    const host = window.location.hostname || 'localhost'
+    return `http://${host}:3001`
+  }
+  return 'http://localhost:3001'
+}
 
-const signalUrl =
-  import.meta.env.VITE_SIGNALING_SERVER ||
-  (shouldConnectSocket ? 'http://localhost:3001' : '')
+const shouldConnectSocket = true
+const signalUrl = getSignalUrl()
 
 const DEFAULT_STATS: StatsState = {
   fps: '60 FPS',
@@ -73,9 +79,10 @@ export default function App() {
     screenMirroring: true,
     usbMirroring: false,
     videoCasting: false,
+    remoteControl: true,
   })
 
-  const toggleCard = (card: 'screenMirroring' | 'usbMirroring' | 'videoCasting') => {
+  const toggleCard = (card: 'screenMirroring' | 'usbMirroring' | 'videoCasting' | 'remoteControl') => {
     setExpandedCards((prev) => ({ ...prev, [card]: !prev[card] }))
   }
 
@@ -1267,7 +1274,30 @@ export default function App() {
                 )}
               </section>
 
-              {/* Card 3: Video App Casting */}
+              {/* Card 3: Remote Control (PC to Mobile & Mobile to PC • 2-Way) */}
+              <MobileRemoteCard
+                targetPlatform="iOS"
+                currentPin={currentPin}
+                currentSessionId={currentSessionId}
+                isExpanded={expandedCards.remoteControl}
+                onToggleExpand={() => toggleCard('remoteControl')}
+                onRequireAuth={requireAuthForCasting}
+                onRemoteStreamReceived={(stream, partnerInfo) => {
+                  setRemoteMediaStream(stream)
+                  setActiveConnectedDevice({
+                    name: partnerInfo?.name || 'Remote iPhone',
+                    platform: 'iOS',
+                    type: 'LBM Remote Control',
+                    fps: '60 FPS',
+                    resolution: '1920x1080',
+                  })
+                  setStatus('MIRRORING')
+                  setShowViewerModal(true)
+                }}
+                showToast={showToast}
+              />
+
+              {/* Card 4: Video App Casting */}
               <section className="airplayer-card">
                 <div className="card-top-header" onClick={() => toggleCard('videoCasting')}>
                   <div className="card-header-left">
@@ -1633,6 +1663,29 @@ export default function App() {
                   </div>
                 )}
               </section>
+
+              {/* Card 3: Ultra Remote Control (ID & Password • Any Network • 2-Way) */}
+              <MobileRemoteCard
+                targetPlatform="Android"
+                currentPin={currentPin}
+                currentSessionId={currentSessionId}
+                isExpanded={expandedCards.remoteControl}
+                onToggleExpand={() => toggleCard('remoteControl')}
+                onRequireAuth={requireAuthForCasting}
+                onRemoteStreamReceived={(stream, partnerInfo) => {
+                  setRemoteMediaStream(stream)
+                  setActiveConnectedDevice({
+                    name: partnerInfo?.name || 'Remote Android Phone',
+                    platform: 'Android',
+                    type: 'LBM Remote Control',
+                    fps: '60 FPS',
+                    resolution: '1920x1080',
+                  })
+                  setStatus('MIRRORING')
+                  setShowViewerModal(true)
+                }}
+                showToast={showToast}
+              />
             </>
           )}
 
