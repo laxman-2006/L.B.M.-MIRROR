@@ -9,6 +9,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import authRoutes from './auth/routes.js'
 import adminRoutes, { getStatsAggregator } from './admin/routes.js'
+import { defaultRemoteInputBridge } from '../electron/bridge/remoteInputBridge.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -22,6 +23,23 @@ const io = new Server(server, {
 // Enable JSON body parsing for authentication and admin REST API (with support for image uploads)
 app.use(express.json({ limit: '30mb' }))
 app.use(express.urlencoded({ extended: true, limit: '30mb' }))
+
+// Auto-start Windows native input bridge if running on Windows
+if (process.platform === 'win32') {
+  defaultRemoteInputBridge.start().catch((err) => {
+    console.warn('[Server] Could not auto-start remote input bridge:', err?.message)
+  })
+}
+
+// REST API for remote input (allows browser/PWA on host to execute Windows mouse/keyboard events)
+app.post('/api/remote-input', (req, res) => {
+  const event = req.body
+  if (event && event.type && process.platform === 'win32') {
+    defaultRemoteInputBridge.handleEvent(event)
+    return res.json({ success: true })
+  }
+  res.status(400).json({ error: 'Invalid input event' })
+})
 
 // CORS headers
 app.use((req, res, next) => {
@@ -564,16 +582,27 @@ io.on('connection', (socket) => {
   socket.on('lbm_remote:signal', signalHandler)
   socket.on('ultraviewer:signal', signalHandler)
 
-  // Relay Remote Mouse/Keyboard Input
+  // Relay Remote Mouse/Keyboard Input & execute on Windows host
   const inputHandler = ({ targetRoom, event }) => {
     const room = targetRoom || (socket.rooms ? [...socket.rooms].find(r => r.startsWith('uv_')) : null)
     if (room && event) {
       socket.to(room).emit('lbm_remote:input', { event })
       socket.to(room).emit('ultraviewer:input', { event })
+
+      // If running on Windows host, execute input directly on desktop!
+      if (process.platform === 'win32') {
+        defaultRemoteInputBridge.handleEvent(event)
+      }
     }
   }
   socket.on('lbm_remote:input', inputHandler)
   socket.on('ultraviewer:input', inputHandler)
+
+  socket.on('ultraviewer:host:execute_input', ({ event }) => {
+    if (event && process.platform === 'win32') {
+      defaultRemoteInputBridge.handleEvent(event)
+    }
+  })
 
   // Relay Live Chat
   const chatHandler = ({ targetRoom, message }) => {

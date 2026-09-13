@@ -1,11 +1,195 @@
 import { spawn } from 'child_process'
 import path from 'path'
 import fs from 'fs'
+import os from 'os'
 import { fileURLToPath } from 'url'
-import { app } from 'electron'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+// Embedded PowerShell agent script to guarantee physical file execution in all modes
+const EMBEDDED_AGENT_SCRIPT = `Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+public class WinUser32 {
+    [DllImport("user32.dll")]
+    public static extern bool SetProcessDPIAware();
+
+    [DllImport("user32.dll")]
+    public static extern bool SetCursorPos(int X, int Y);
+
+    [DllImport("user32.dll")]
+    public static extern void mouse_event(uint dwFlags, int dx, int dy, uint dwData, UIntPtr dwExtraInfo);
+
+    [DllImport("user32.dll")]
+    public static extern void keybd_event(byte bVk, ushort bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    [DllImport("user32.dll")]
+    public static extern int GetSystemMetrics(int nIndex);
+}
+"@
+
+try { [WinUser32]::SetProcessDPIAware() | Out-Null } catch {}
+
+$SM_CXSCREEN = 0
+$SM_CYSCREEN = 1
+
+$MOUSEEVENTF_MOVE        = 0x0001
+$MOUSEEVENTF_LEFTDOWN    = 0x0002
+$MOUSEEVENTF_LEFTUP      = 0x0004
+$MOUSEEVENTF_RIGHTDOWN   = 0x0008
+$MOUSEEVENTF_RIGHTUP     = 0x0010
+$MOUSEEVENTF_MIDDLEDOWN  = 0x0020
+$MOUSEEVENTF_MIDDLEUP    = 0x0040
+$MOUSEEVENTF_WHEEL       = 0x0800
+
+$KEYEVENTF_KEYUP         = 0x0002
+$KEYEVENTF_UNICODE       = 0x0004
+
+$screenWidth  = [WinUser32]::GetSystemMetrics($SM_CXSCREEN)
+$screenHeight = [WinUser32]::GetSystemMetrics($SM_CYSCREEN)
+
+Write-Host "READY $screenWidth $screenHeight"
+[Console]::Out.Flush()
+
+while ($true) {
+    $line = [Console]::ReadLine()
+    if ($null -eq $line) { break }
+    $line = $line.Trim()
+    if ([string]::IsNullOrEmpty($line)) { continue }
+    if ($line -eq "QUIT" -or $line -eq "EXIT") { break }
+
+    try {
+        $parts = $line -split " "
+        $cmd = $parts[0].ToUpperInvariant()
+
+        switch ($cmd) {
+            "M" {
+                $x = [int]$parts[1]
+                $y = [int]$parts[2]
+                [WinUser32]::SetCursorPos($x, $y) | Out-Null
+            }
+            "LC" {
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
+                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
+            }
+            "LD" {
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
+                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
+            }
+            "LU" {
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
+                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
+            }
+            "RC" {
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
+                [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTUP, 0, 0, 0, [UIntPtr]::Zero)
+            }
+            "RD" {
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
+                [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, [UIntPtr]::Zero)
+            }
+            "RU" {
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
+                [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTUP, 0, 0, 0, [UIntPtr]::Zero)
+            }
+            "DC" {
+                if ($parts.Length -ge 3) {
+                    $x = [int]$parts[1]
+                    $y = [int]$parts[2]
+                    [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                }
+                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
+                [System.Threading.Thread]::Sleep(40)
+                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
+            }
+            "W" {
+                $delta = [int]$parts[1]
+                [WinUser32]::mouse_event($MOUSEEVENTF_WHEEL, 0, 0, [uint32]$delta, [UIntPtr]::Zero)
+            }
+            "C" {
+                $charStr = $line.Substring(2)
+                foreach ($c in $charStr.ToCharArray()) {
+                    $u16 = [uint16][char]$c
+                    [WinUser32]::keybd_event(0, $u16, $KEYEVENTF_UNICODE, [UIntPtr]::Zero)
+                    [WinUser32]::keybd_event(0, $u16, ($KEYEVENTF_UNICODE -bor $KEYEVENTF_KEYUP), [UIntPtr]::Zero)
+                }
+            }
+            "K" {
+                $vk = [byte]$parts[1]
+                $isUp = ($parts[2] -eq "1" -or $parts[2].ToUpper() -eq "UP")
+                $flags = if ($isUp) { $KEYEVENTF_KEYUP } else { 0 }
+                [WinUser32]::keybd_event($vk, 0, $flags, [UIntPtr]::Zero)
+            }
+            "WIN" {
+                [WinUser32]::keybd_event(0x5B, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x5B, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+            }
+            "TASKMGR" {
+                [WinUser32]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x10, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x1B, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x1B, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x10, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x11, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+            }
+            "ALTTAB" {
+                [WinUser32]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x09, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x09, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x12, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+            }
+            "EXPLORER" {
+                [WinUser32]::keybd_event(0x5B, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x45, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x45, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x5B, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+            }
+            "WIN_R" {
+                [WinUser32]::keybd_event(0x5B, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x52, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x52, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x5B, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+            }
+            "WIN_D" {
+                [WinUser32]::keybd_event(0x5B, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x44, 0, 0, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x44, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+                [WinUser32]::keybd_event(0x5B, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+            }
+        }
+    } catch {}
+}
+`
 
 // Standard Windows Virtual Key Codes mapping
 const VK_MAP = {
@@ -52,7 +236,7 @@ const VK_MAP = {
   Digit8: 0x38,
   Digit9: 0x39,
 
-  // Alphabet A-Z
+  // Alphabet
   KeyA: 0x41,
   KeyB: 0x42,
   KeyC: 0x43,
@@ -137,18 +321,28 @@ export class RemoteInputBridge {
   }
 
   resolveScriptPath() {
+    const tempAgentPath = path.join(os.tmpdir(), 'lbm_remote_input_agent.ps1')
+
+    // 1. Write the embedded agent script to a physical temp file so powershell.exe can always execute it
+    try {
+      fs.writeFileSync(tempAgentPath, EMBEDDED_AGENT_SCRIPT, 'utf8')
+      return tempAgentPath
+    } catch (err) {
+      console.warn('[RemoteInputBridge] Could not write temp agent script:', err)
+    }
+
+    // 2. Fallbacks for dev and unpacked
     const possiblePaths = [
-      path.join(__dirname, 'remote_input_agent.ps1'),
       path.join(process.resourcesPath || '', 'app.asar.unpacked', 'electron', 'bridge', 'remote_input_agent.ps1'),
-      path.join(app ? app.getAppPath() : process.cwd(), 'electron', 'bridge', 'remote_input_agent.ps1'),
       path.join(process.cwd(), 'electron', 'bridge', 'remote_input_agent.ps1'),
+      path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), 'remote_input_agent.ps1'),
     ]
 
     for (const p of possiblePaths) {
       if (p && fs.existsSync(p)) return p
     }
 
-    return path.join(__dirname, 'remote_input_agent.ps1')
+    return tempAgentPath
   }
 
   start() {
@@ -345,7 +539,6 @@ export class RemoteInputBridge {
       }
 
       case 'mouse:wheel': {
-        // Delta > 0 is scroll up, Delta < 0 is scroll down
         const delta = event.deltaY ? -Math.sign(event.deltaY) * 120 : (event.delta || -120)
         this.sendRaw(`W ${delta}`)
         break
@@ -360,32 +553,40 @@ export class RemoteInputBridge {
 
       case 'key:down':
       case 'key:up': {
-        const isUp = event.type === 'key:up' ? 1 : 0
+        const isUp = event.type === 'key:up'
         let vk = 0
 
         if (event.code && VK_MAP[event.code]) {
           vk = VK_MAP[event.code]
-        } else if (event.key && event.key.length === 1) {
-          const charCode = event.key.toUpperCase().charCodeAt(0)
-          if ((charCode >= 65 && charCode <= 90) || (charCode >= 48 && charCode <= 57)) {
-            vk = charCode
+        } else if (event.key) {
+          if (event.key.length === 1) {
+            const upper = event.key.toUpperCase()
+            const codeKey = `Key${upper}`
+            const digitKey = `Digit${upper}`
+            if (VK_MAP[codeKey]) vk = VK_MAP[codeKey]
+            else if (VK_MAP[digitKey]) vk = VK_MAP[digitKey]
+            else vk = upper.charCodeAt(0)
+          } else {
+            vk = VK_MAP[event.key] || 0
           }
         }
 
         if (vk > 0) {
-          this.sendRaw(`K ${vk} ${isUp}`)
+          this.sendRaw(`K ${vk} ${isUp ? '1' : '0'}`)
+        } else if (!isUp && event.key && event.key.length === 1) {
+          this.sendRaw(`C ${event.key}`)
         }
         break
       }
 
       case 'shortcut': {
-        const sc = (event.name || '').toUpperCase()
-        if (sc === 'WIN') this.sendRaw('WIN')
-        else if (sc === 'TASKMGR') this.sendRaw('TASKMGR')
-        else if (sc === 'ALTTAB') this.sendRaw('ALTTAB')
-        else if (sc === 'EXPLORER') this.sendRaw('EXPLORER')
-        else if (sc === 'WIN_R') this.sendRaw('WIN_R')
-        else if (sc === 'WIN_D') this.sendRaw('WIN_D')
+        const name = (event.name || '').toUpperCase()
+        if (name === 'WIN' || name === 'START') this.sendRaw('WIN')
+        else if (name === 'TASKMGR' || name === 'TASK_MANAGER') this.sendRaw('TASKMGR')
+        else if (name === 'ALTTAB' || name === 'ALT_TAB') this.sendRaw('ALTTAB')
+        else if (name === 'EXPLORER' || name === 'FILE_EXPLORER') this.sendRaw('EXPLORER')
+        else if (name === 'WIN_R' || name === 'RUN') this.sendRaw('WIN_R')
+        else if (name === 'WIN_D' || name === 'DESKTOP') this.sendRaw('WIN_D')
         break
       }
 
@@ -397,13 +598,17 @@ export class RemoteInputBridge {
   stop() {
     if (this.process) {
       try {
-        this.sendRaw('QUIT')
-        this.process.kill()
+        this.process.stdin.write('QUIT\n')
       } catch {}
-      this.process = null
-      this.isReady = false
-      this.isStarting = false
+      setTimeout(() => {
+        if (this.process) {
+          try { this.process.kill() } catch {}
+          this.process = null
+        }
+      }, 200)
     }
+    this.isReady = false
+    this.isStarting = false
   }
 }
 

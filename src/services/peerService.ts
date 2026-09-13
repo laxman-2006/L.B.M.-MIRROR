@@ -599,9 +599,22 @@ export class PeerService {
   }
 
   private handleIncomingControlEvent(evt: RemoteControlEvent) {
+    // Priority 1: Native Electron Bridge
     if (typeof window !== 'undefined' && window.electronAPI?.remoteInput) {
       window.electronAPI.remoteInput.start().catch(() => {})
       window.electronAPI.remoteInput.sendEvent(evt).catch(() => {})
+    } else {
+      // Priority 2: Local Signaling / Input Server on port 3001 (for Chrome, Edge, PWA)
+      if (this.socket && this.socket.connected) {
+        this.socket.emit('ultraviewer:host:execute_input', { event: evt })
+      }
+      try {
+        fetch('http://localhost:3001/api/remote-input', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(evt),
+        }).catch(() => {})
+      } catch {}
     }
 
     if (this.onControlEventCb) {
