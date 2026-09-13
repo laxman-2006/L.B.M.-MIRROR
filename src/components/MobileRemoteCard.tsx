@@ -27,10 +27,10 @@ export const MobileRemoteCard: React.FC<MobileRemoteCardProps> = ({
   // ─── Left Column: Your ID & Password (Allow Remote Control - Phone to PC) ───
   const [hostId] = useState<string>(currentPin || '839201')
   const [hostPassword, setHostPassword] = useState<string>(() => {
-    const saved = sessionStorage.getItem(`lbm_${targetPlatform.toLowerCase()}_passcode`)
+    const saved = sessionStorage.getItem('lbm_host_passcode') || sessionStorage.getItem(`lbm_${targetPlatform.toLowerCase()}_passcode`)
     if (saved) return saved
     const gen = String(Math.floor(1000 + Math.random() * 9000))
-    sessionStorage.setItem(`lbm_${targetPlatform.toLowerCase()}_passcode`, gen)
+    sessionStorage.setItem('lbm_host_passcode', gen)
     return gen
   })
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
@@ -57,7 +57,10 @@ export const MobileRemoteCard: React.FC<MobileRemoteCardProps> = ({
     })
       .then((url) => setQrDataUrl(url))
       .catch(() => {})
-  }, [currentPin, hostId, currentSessionId])
+
+    // Ensure host is initialized for incoming phone/partner connections
+    defaultPeerService.initHost(cleanPin, null, hostPassword).catch(() => {})
+  }, [currentPin, hostId, currentSessionId, hostPassword])
 
   // Sync passcode to PeerService
   useEffect(() => {
@@ -67,8 +70,11 @@ export const MobileRemoteCard: React.FC<MobileRemoteCardProps> = ({
   const handleRegeneratePassword = () => {
     const newPass = String(Math.floor(1000 + Math.random() * 9000))
     setHostPassword(newPass)
+    sessionStorage.setItem('lbm_host_passcode', newPass)
     sessionStorage.setItem(`lbm_${targetPlatform.toLowerCase()}_passcode`, newPass)
     defaultPeerService.setHostPasscode(newPass)
+    const cleanPin = (currentPin || hostId).replace(/\s+/g, '')
+    defaultPeerService.initHost(cleanPin, null, newPass).catch(() => {})
     showToast('🔑 New Remote Access Password generated!')
   }
 

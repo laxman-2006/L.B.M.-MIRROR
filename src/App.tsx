@@ -515,6 +515,35 @@ export default function App() {
     }
   }, [currentSessionId])
 
+  // ─── Global Host Initialization for Remote Desktop Control (Any Tab) ───────
+  useEffect(() => {
+    const cleanPin = currentPin.replace(/\s+/g, '').trim()
+    const hostPasscode = sessionStorage.getItem('lbm_host_passcode') || '1234'
+    defaultPeerService.setHostPasscode(hostPasscode)
+
+    const acquireGlobalScreenStream = async (): Promise<MediaStream | null> => {
+      try {
+        const stream = await defaultWebRtcService.startScreenCapture({ frameRate: 60 })
+        defaultPeerService.updateLocalStream(stream)
+        if (typeof window !== 'undefined' && window.electronAPI?.remoteInput) {
+          window.electronAPI.remoteInput.start().catch(() => {})
+        }
+        return stream
+      } catch (err) {
+        console.warn('[App] Screen capture cancelled or deferred:', err)
+        return null
+      }
+    }
+
+    defaultPeerService.setStreamProvider(acquireGlobalScreenStream)
+    defaultPeerService.initHost(cleanPin, null, hostPasscode).catch(() => {})
+
+    // Prime native Windows remote input agent on launch
+    if (typeof window !== 'undefined' && window.electronAPI?.remoteInput) {
+      window.electronAPI.remoteInput.start().catch(() => {})
+    }
+  }, [currentPin])
+
   // ─── AirPlay Restart Helper ────────────────────────────────────────────────
   const handleRestartAirplay = async () => {
     if (!window.electronAPI) return

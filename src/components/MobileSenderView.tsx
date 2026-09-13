@@ -37,6 +37,16 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
   const [connectError, setConnectError] = useState<string | null>(null)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [virtualText, setVirtualText] = useState('')
+  const [showUrlPrompt, setShowUrlPrompt] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
+  const [showTextPrompt, setShowTextPrompt] = useState(false)
+  const [customTextInput, setCustomTextInput] = useState('')
+  const [mobileToast, setMobileToast] = useState<string | null>(null)
+
+  const showToastMsg = (msg: string) => {
+    setMobileToast(msg)
+    setTimeout(() => setMobileToast(null), 3000)
+  }
 
   // Gesture refs
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null)
@@ -199,6 +209,13 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
             x: coords.normX,
             y: coords.normY,
           })
+          defaultPeerService.sendInputEvent({
+            type: 'mouse:click',
+            button: 'right',
+            x: coords.normX,
+            y: coords.normY,
+          })
+          showToastMsg('🖱️ Right Click Triggered')
           if (navigator.vibrate) navigator.vibrate(40)
         }
       }, 550)
@@ -261,12 +278,13 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
       lastTapTimeRef.current = now
 
       if (timeSinceLastTap < 300) {
-        // Double Click
+        // Double Click (Opens Desktop Apps & Folders)
         defaultPeerService.sendInputEvent({
           type: 'mouse:dblclick',
           x: coords.normX,
           y: coords.normY,
         })
+        showToastMsg('⚡ Double Click (Open App)')
       } else {
         // Single Click
         defaultPeerService.sendInputEvent({
@@ -281,8 +299,41 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
           x: coords.normX,
           y: coords.normY,
         })
+        defaultPeerService.sendInputEvent({
+          type: 'mouse:click',
+          button: 'left',
+          x: coords.normX,
+          y: coords.normY,
+        })
       }
     }
+  }
+
+  // ─── Remote App Launch & Web Navigation ────────────────────────────────────
+  const handleLaunchApp = (app: string) => {
+    defaultPeerService.launchApp(app)
+    showToastMsg(`🚀 Opening ${app.toUpperCase()} on PC...`)
+  }
+
+  const handleOpenUrl = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!urlInput.trim()) return
+    defaultPeerService.openUrl(urlInput.trim())
+    showToastMsg(`🌐 Opening ${urlInput.trim()} on PC...`)
+    setShowUrlPrompt(false)
+    setUrlInput('')
+  }
+
+  const handleSendCustomText = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!customTextInput.trim()) return
+    defaultPeerService.sendInputEvent({
+      type: 'key:text',
+      text: customTextInput,
+    })
+    showToastMsg('⌨️ Text typed on PC!')
+    setShowTextPrompt(false)
+    setCustomTextInput('')
   }
 
   // ─── Send Windows Shortcut ────────────────────────────────────────────────
@@ -576,8 +627,32 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
               )}
             </div>
 
-            {/* Quick Windows Shortcut Bar for Phones */}
+            {/* Quick Windows Shortcut & App Launcher Bar for Phones */}
             <div className="mobile-shortcuts-dock">
+              <button
+                type="button"
+                className="mobile-dock-pill"
+                style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#fff', fontWeight: 'bold' }}
+                onClick={() => handleLaunchApp('chrome')}
+              >
+                🌐 Chrome
+              </button>
+              <button
+                type="button"
+                className="mobile-dock-pill"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', fontWeight: 'bold' }}
+                onClick={() => setShowUrlPrompt(true)}
+              >
+                🌍 Open URL
+              </button>
+              <button
+                type="button"
+                className="mobile-dock-pill"
+                style={{ background: 'rgba(56, 189, 248, 0.2)', border: '1px solid #38bdf8', color: '#38bdf8' }}
+                onClick={() => setShowTextPrompt(true)}
+              >
+                ⌨️ Type Text
+              </button>
               <button
                 type="button"
                 className="mobile-dock-pill"
@@ -621,6 +696,114 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                 📊 TaskMgr
               </button>
             </div>
+
+            {/* Floating Mobile Toast Banner */}
+            {mobileToast && (
+              <div style={{
+                position: 'fixed',
+                top: '70px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(15, 23, 42, 0.95)',
+                border: '1px solid #38bdf8',
+                color: '#fff',
+                padding: '8px 18px',
+                borderRadius: '30px',
+                fontSize: '13px',
+                fontWeight: 600,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                zIndex: 99999,
+                pointerEvents: 'none'
+              }}>
+                {mobileToast}
+              </div>
+            )}
+
+            {/* Mobile Open URL Prompt Modal */}
+            {showUrlPrompt && (
+              <div className="auth-modal-overlay" style={{ zIndex: 99999 }} onClick={() => setShowUrlPrompt(false)}>
+                <div className="admin-pin-dialog-card" style={{ maxWidth: '340px' }} onClick={(e) => e.stopPropagation()}>
+                  <button type="button" className="download-close-btn" onClick={() => setShowUrlPrompt(false)}>✕</button>
+                  <div className="pin-dialog-header">
+                    <span className="pin-shield-badge">🌐</span>
+                    <h3 className="pin-dialog-title">Open Website on PC</h3>
+                    <p className="pin-dialog-desc">
+                      कंप्यूटर पर जो वेबसाइट खोलनी है उसका नाम लिखें:
+                    </p>
+                  </div>
+                  <form onSubmit={handleOpenUrl} style={{ marginTop: '12px' }}>
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="e.g. youtube.com, google.com"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      className="admin-pin-input-field"
+                      style={{ fontSize: '14px', textAlign: 'left', padding: '10px 12px' }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                      <button
+                        type="submit"
+                        className="primary-button"
+                        style={{ flex: 1, padding: '10px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+                      >
+                        🚀 Open on PC
+                      </button>
+                      <button
+                        type="button"
+                        className="toolbar-pill"
+                        onClick={() => setShowUrlPrompt(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Mobile Type Text Modal */}
+            {showTextPrompt && (
+              <div className="auth-modal-overlay" style={{ zIndex: 99999 }} onClick={() => setShowTextPrompt(false)}>
+                <div className="admin-pin-dialog-card" style={{ maxWidth: '340px' }} onClick={(e) => e.stopPropagation()}>
+                  <button type="button" className="download-close-btn" onClick={() => setShowTextPrompt(false)}>✕</button>
+                  <div className="pin-dialog-header">
+                    <span className="pin-shield-badge">⌨️</span>
+                    <h3 className="pin-dialog-title">Type into PC</h3>
+                    <p className="pin-dialog-desc">
+                      यहाँ लिखें, वो कंप्यूटर में टाइप हो जाएगा:
+                    </p>
+                  </div>
+                  <form onSubmit={handleSendCustomText} style={{ marginTop: '12px' }}>
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Type text or search query..."
+                      value={customTextInput}
+                      onChange={(e) => setCustomTextInput(e.target.value)}
+                      className="admin-pin-input-field"
+                      style={{ fontSize: '14px', textAlign: 'left', padding: '10px 12px' }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                      <button
+                        type="submit"
+                        className="primary-button"
+                        style={{ flex: 1, padding: '10px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}
+                      >
+                        ⌨️ Send to PC
+                      </button>
+                      <button
+                        type="button"
+                        className="toolbar-pill"
+                        onClick={() => setShowTextPrompt(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
 
             {/* Touch gestures helper hint */}
             <div className="mobile-gesture-helper">

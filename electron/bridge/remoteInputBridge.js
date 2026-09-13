@@ -43,12 +43,21 @@ $MOUSEEVENTF_RIGHTUP     = 0x0010
 $MOUSEEVENTF_MIDDLEDOWN  = 0x0020
 $MOUSEEVENTF_MIDDLEUP    = 0x0040
 $MOUSEEVENTF_WHEEL       = 0x0800
+$MOUSEEVENTF_ABSOLUTE    = 0x8000
 
 $KEYEVENTF_KEYUP         = 0x0002
 $KEYEVENTF_UNICODE       = 0x0004
 
 $screenWidth  = [WinUser32]::GetSystemMetrics($SM_CXSCREEN)
 $screenHeight = [WinUser32]::GetSystemMetrics($SM_CYSCREEN)
+if ($screenWidth -le 0) { $screenWidth = 1920 }
+if ($screenHeight -le 0) { $screenHeight = 1080 }
+
+function ConvertTo-AbsoluteCoords([int]$x, [int]$y) {
+    $nx = [Math]::Max(0, [Math]::Min(65535, [int](($x / ($screenWidth - 1)) * 65535)))
+    $ny = [Math]::Max(0, [Math]::Min(65535, [int](($y / ($screenHeight - 1)) * 65535)))
+    return @($nx, $ny)
+}
 
 Write-Host "READY $screenWidth $screenHeight"
 [Console]::Out.Flush()
@@ -68,69 +77,98 @@ while ($true) {
             "M" {
                 $x = [int]$parts[1]
                 $y = [int]$parts[2]
+                $abs = ConvertTo-AbsoluteCoords $x $y
                 [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                [WinUser32]::mouse_event($MOUSEEVENTF_MOVE -bor $MOUSEEVENTF_ABSOLUTE, $abs[0], $abs[1], 0, [UIntPtr]::Zero)
             }
             "LC" {
                 if ($parts.Length -ge 3) {
                     $x = [int]$parts[1]
                     $y = [int]$parts[2]
+                    $abs = ConvertTo-AbsoluteCoords $x $y
                     [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                    [WinUser32]::mouse_event($MOUSEEVENTF_MOVE -bor $MOUSEEVENTF_ABSOLUTE -bor $MOUSEEVENTF_LEFTDOWN, $abs[0], $abs[1], 0, [UIntPtr]::Zero)
+                    [WinUser32]::mouse_event($MOUSEEVENTF_MOVE -bor $MOUSEEVENTF_ABSOLUTE -bor $MOUSEEVENTF_LEFTUP, $abs[0], $abs[1], 0, [UIntPtr]::Zero)
+                } else {
+                    [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
+                    [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
                 }
-                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
-                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
             }
             "LD" {
                 if ($parts.Length -ge 3) {
                     $x = [int]$parts[1]
                     $y = [int]$parts[2]
+                    $abs = ConvertTo-AbsoluteCoords $x $y
                     [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                    [WinUser32]::mouse_event($MOUSEEVENTF_MOVE -bor $MOUSEEVENTF_ABSOLUTE -bor $MOUSEEVENTF_LEFTDOWN, $abs[0], $abs[1], 0, [UIntPtr]::Zero)
+                } else {
+                    [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
                 }
-                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
             }
             "LU" {
                 if ($parts.Length -ge 3) {
                     $x = [int]$parts[1]
                     $y = [int]$parts[2]
+                    $abs = ConvertTo-AbsoluteCoords $x $y
                     [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                    [WinUser32]::mouse_event($MOUSEEVENTF_MOVE -bor $MOUSEEVENTF_ABSOLUTE -bor $MOUSEEVENTF_LEFTUP, $abs[0], $abs[1], 0, [UIntPtr]::Zero)
+                } else {
+                    [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
                 }
-                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
             }
             "RC" {
                 if ($parts.Length -ge 3) {
                     $x = [int]$parts[1]
                     $y = [int]$parts[2]
+                    $abs = ConvertTo-AbsoluteCoords $x $y
                     [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                    [WinUser32]::mouse_event($MOUSEEVENTF_MOVE -bor $MOUSEEVENTF_ABSOLUTE -bor $MOUSEEVENTF_RIGHTDOWN, $abs[0], $abs[1], 0, [UIntPtr]::Zero)
+                    [WinUser32]::mouse_event($MOUSEEVENTF_MOVE -bor $MOUSEEVENTF_ABSOLUTE -bor $MOUSEEVENTF_RIGHTUP, $abs[0], $abs[1], 0, [UIntPtr]::Zero)
+                } else {
+                    [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, [UIntPtr]::Zero)
+                    [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTUP, 0, 0, 0, [UIntPtr]::Zero)
                 }
-                [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, [UIntPtr]::Zero)
-                [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTUP, 0, 0, 0, [UIntPtr]::Zero)
             }
             "RD" {
                 if ($parts.Length -ge 3) {
                     $x = [int]$parts[1]
                     $y = [int]$parts[2]
+                    $abs = ConvertTo-AbsoluteCoords $x $y
                     [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                    [WinUser32]::mouse_event($MOUSEEVENTF_MOVE -bor $MOUSEEVENTF_ABSOLUTE -bor $MOUSEEVENTF_RIGHTDOWN, $abs[0], $abs[1], 0, [UIntPtr]::Zero)
+                } else {
+                    [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, [UIntPtr]::Zero)
                 }
-                [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, [UIntPtr]::Zero)
             }
             "RU" {
                 if ($parts.Length -ge 3) {
                     $x = [int]$parts[1]
                     $y = [int]$parts[2]
+                    $abs = ConvertTo-AbsoluteCoords $x $y
                     [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                    [WinUser32]::mouse_event($MOUSEEVENTF_MOVE -bor $MOUSEEVENTF_ABSOLUTE -bor $MOUSEEVENTF_RIGHTUP, $abs[0], $abs[1], 0, [UIntPtr]::Zero)
+                } else {
+                    [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTUP, 0, 0, 0, [UIntPtr]::Zero)
                 }
-                [WinUser32]::mouse_event($MOUSEEVENTF_RIGHTUP, 0, 0, 0, [UIntPtr]::Zero)
             }
             "DC" {
                 if ($parts.Length -ge 3) {
                     $x = [int]$parts[1]
                     $y = [int]$parts[2]
+                    $abs = ConvertTo-AbsoluteCoords $x $y
                     [WinUser32]::SetCursorPos($x, $y) | Out-Null
+                    [WinUser32]::mouse_event($MOUSEEVENTF_MOVE -bor $MOUSEEVENTF_ABSOLUTE -bor $MOUSEEVENTF_LEFTDOWN, $abs[0], $abs[1], 0, [UIntPtr]::Zero)
+                    [WinUser32]::mouse_event($MOUSEEVENTF_MOVE -bor $MOUSEEVENTF_ABSOLUTE -bor $MOUSEEVENTF_LEFTUP, $abs[0], $abs[1], 0, [UIntPtr]::Zero)
+                    [System.Threading.Thread]::Sleep(40)
+                    [WinUser32]::mouse_event($MOUSEEVENTF_MOVE -bor $MOUSEEVENTF_ABSOLUTE -bor $MOUSEEVENTF_LEFTDOWN, $abs[0], $abs[1], 0, [UIntPtr]::Zero)
+                    [WinUser32]::mouse_event($MOUSEEVENTF_MOVE -bor $MOUSEEVENTF_ABSOLUTE -bor $MOUSEEVENTF_LEFTUP, $abs[0], $abs[1], 0, [UIntPtr]::Zero)
+                } else {
+                    [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
+                    [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
+                    [System.Threading.Thread]::Sleep(40)
+                    [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
+                    [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
                 }
-                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
-                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
-                [System.Threading.Thread]::Sleep(40)
-                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [UIntPtr]::Zero)
-                [WinUser32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [UIntPtr]::Zero)
             }
             "W" {
                 $delta = [int]$parts[1]
@@ -185,6 +223,35 @@ while ($true) {
                 [WinUser32]::keybd_event(0x44, 0, 0, [UIntPtr]::Zero)
                 [WinUser32]::keybd_event(0x44, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
                 [WinUser32]::keybd_event(0x5B, 0, $KEYEVENTF_KEYUP, [UIntPtr]::Zero)
+            }
+            "APP" {
+                if ($parts.Length -ge 2) {
+                    $target = $parts[1].ToLowerInvariant()
+                    if ($target -eq "chrome") {
+                        Start-Process "chrome.exe" -ErrorAction SilentlyContinue
+                    } elseif ($target -eq "edge") {
+                        Start-Process "msedge.exe" -ErrorAction SilentlyContinue
+                    } elseif ($target -eq "explorer") {
+                        Start-Process "explorer.exe" -ErrorAction SilentlyContinue
+                    } elseif ($target -eq "notepad") {
+                        Start-Process "notepad.exe" -ErrorAction SilentlyContinue
+                    } elseif ($target -eq "calc") {
+                        Start-Process "calc.exe" -ErrorAction SilentlyContinue
+                    } elseif ($target -eq "cmd") {
+                        Start-Process "cmd.exe" -ErrorAction SilentlyContinue
+                    } elseif ($target -eq "taskmgr") {
+                        Start-Process "taskmgr.exe" -ErrorAction SilentlyContinue
+                    } else {
+                        Start-Process $parts[1] -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+            "URL" {
+                if ($line.Length -gt 4) {
+                    $url = $line.Substring(4).Trim()
+                    if ($url -notmatch "^https?://") { $url = "https://" + $url }
+                    Start-Process $url -ErrorAction SilentlyContinue
+                }
             }
         }
     } catch {}
@@ -587,6 +654,18 @@ export class RemoteInputBridge {
         else if (name === 'EXPLORER' || name === 'FILE_EXPLORER') this.sendRaw('EXPLORER')
         else if (name === 'WIN_R' || name === 'RUN') this.sendRaw('WIN_R')
         else if (name === 'WIN_D' || name === 'DESKTOP') this.sendRaw('WIN_D')
+        break
+      }
+
+      case 'app:launch': {
+        const app = (event.app || '').trim()
+        if (app) this.sendRaw(`APP ${app}`)
+        break
+      }
+
+      case 'open:url': {
+        const url = (event.url || '').trim()
+        if (url) this.sendRaw(`URL ${url}`)
         break
       }
 

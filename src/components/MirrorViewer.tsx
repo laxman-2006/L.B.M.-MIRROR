@@ -52,12 +52,23 @@ export function MirrorViewer({
   const [showStatsHud, setShowStatsHud] = useState<boolean>(false)
 
   // ─── Remote Control Interactive State ─────────────────────────────────────
-  const [isControlActive, setIsControlActive] = useState<boolean>(Boolean(isRemoteControl || isUltraViewer))
+  const [isControlActive, setIsControlActive] = useState<boolean>(true)
   const [showChatDrawer, setShowChatDrawer] = useState<boolean>(false)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState<string>('')
   const [unreadCount, setUnreadCount] = useState<number>(0)
   const [clipboardToast, setClipboardToast] = useState<string | null>(null)
+
+  // App & Web Quick Launcher
+  const [showUrlDialog, setShowUrlDialog] = useState<boolean>(false)
+  const [urlInput, setUrlInput] = useState<string>('')
+  const [showTextInputDialog, setShowTextInputDialog] = useState<boolean>(false)
+  const [customTextInput, setCustomTextInput] = useState<string>('')
+
+  // Always keep control active for live remote sessions
+  useEffect(() => {
+    setIsControlActive(true)
+  }, [isRemoteControl, isUltraViewer, stream])
 
   const lastMouseMoveRef = useRef<number>(0)
 
@@ -231,6 +242,13 @@ export function MirrorViewer({
       x: coords.normX,
       y: coords.normY,
     })
+    // Also dispatch explicit click event with normalized coordinates
+    defaultPeerService.sendInputEvent({
+      type: 'mouse:click',
+      button: btn,
+      x: coords.normX,
+      y: coords.normY,
+    })
   }
 
   const handleSurfaceDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -319,6 +337,35 @@ export function MirrorViewer({
       setClipboardToast('⚠️ Clipboard access permission denied in browser.')
       setTimeout(() => setClipboardToast(null), 2500)
     }
+  }
+
+  const handleLaunchApp = (app: string) => {
+    defaultPeerService.launchApp(app)
+    setClipboardToast(`🚀 Opening ${app.toUpperCase()} on remote PC...`)
+    setTimeout(() => setClipboardToast(null), 2500)
+  }
+
+  const handleOpenUrl = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!urlInput.trim()) return
+    defaultPeerService.openUrl(urlInput.trim())
+    setClipboardToast(`🌐 Opening ${urlInput.trim()} on remote PC...`)
+    setShowUrlDialog(false)
+    setUrlInput('')
+    setTimeout(() => setClipboardToast(null), 3000)
+  }
+
+  const handleSendCustomText = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!customTextInput.trim()) return
+    defaultPeerService.sendInputEvent({
+      type: 'key:text',
+      text: customTextInput,
+    })
+    setClipboardToast(`⌨️ Typed into active window on remote PC!`)
+    setShowTextInputDialog(false)
+    setCustomTextInput('')
+    setTimeout(() => setClipboardToast(null), 2500)
   }
 
   const handleSendChat = (e: React.FormEvent) => {
@@ -414,6 +461,35 @@ export function MirrorViewer({
         <div className="toolbar-actions">
           {/* Quick Action Shortcuts (Remote PC standard features) */}
           <div className="quick-shortcuts-group" title="Send Windows Shortcut to Remote PC">
+            {/* Direct App & Website Launchers */}
+            <button
+              type="button"
+              className="toolbar-pill shortcut-pill"
+              style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#fff', fontWeight: 600 }}
+              onClick={() => handleLaunchApp('chrome')}
+              title="Open Google Chrome on Remote PC"
+            >
+              🌐 Chrome
+            </button>
+            <button
+              type="button"
+              className="toolbar-pill shortcut-pill"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', fontWeight: 600 }}
+              onClick={() => setShowUrlDialog(true)}
+              title="Open any website on Remote PC (e.g. google.com, youtube.com)"
+            >
+              🌍 Open Website
+            </button>
+            <button
+              type="button"
+              className="toolbar-pill shortcut-pill"
+              style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.4)', color: '#38bdf8' }}
+              onClick={() => setShowTextInputDialog(true)}
+              title="Type text or search query into active window on Remote PC"
+            >
+              ⌨️ Type Text
+            </button>
+
             <button
               type="button"
               className="toolbar-pill shortcut-pill"
@@ -582,6 +658,94 @@ export function MirrorViewer({
       {clipboardToast && (
         <div className="lbm-remote-toast-banner ultraviewer-toast-banner">
           <span>{clipboardToast}</span>
+        </div>
+      )}
+
+      {/* Quick Website Launcher Modal */}
+      {showUrlDialog && (
+        <div className="auth-modal-overlay" style={{ zIndex: 99999 }} onClick={() => setShowUrlDialog(false)}>
+          <div className="admin-pin-dialog-card" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="download-close-btn" onClick={() => setShowUrlDialog(false)}>✕</button>
+            <div className="pin-dialog-header">
+              <span className="pin-shield-badge">🌐</span>
+              <h3 className="pin-dialog-title">Open Website on Remote PC</h3>
+              <p className="pin-dialog-desc">
+                सामने वाले कंप्यूटर पर कोई भी वेबसाइट तुरंत खोलें:
+              </p>
+            </div>
+            <form onSubmit={handleOpenUrl} style={{ marginTop: '16px' }}>
+              <input
+                type="text"
+                autoFocus
+                placeholder="e.g. google.com, youtube.com, gemini.google.com"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                className="admin-pin-input-field"
+                style={{ fontSize: '15px', letterSpacing: 'normal', textAlign: 'left', padding: '12px 14px' }}
+              />
+              <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+                <button
+                  type="submit"
+                  className="primary-button"
+                  style={{ flex: 1, padding: '10px 16px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+                >
+                  🚀 Open on Remote PC
+                </button>
+                <button
+                  type="button"
+                  className="toolbar-pill"
+                  onClick={() => setShowUrlDialog(false)}
+                  style={{ padding: '10px 16px' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Text / Search Typing Modal */}
+      {showTextInputDialog && (
+        <div className="auth-modal-overlay" style={{ zIndex: 99999 }} onClick={() => setShowTextInputDialog(false)}>
+          <div className="admin-pin-dialog-card" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="download-close-btn" onClick={() => setShowTextInputDialog(false)}>✕</button>
+            <div className="pin-dialog-header">
+              <span className="pin-shield-badge">⌨️</span>
+              <h3 className="pin-dialog-title">Type into Remote PC</h3>
+              <p className="pin-dialog-desc">
+                जो टेक्स्ट आप यहाँ लिखेंगे, वो सामने वाले कंप्यूटर में टाइप हो जाएगा:
+              </p>
+            </div>
+            <form onSubmit={handleSendCustomText} style={{ marginTop: '16px' }}>
+              <input
+                type="text"
+                autoFocus
+                placeholder="यहाँ टेक्स्ट या सर्च क्वेरी लिखें..."
+                value={customTextInput}
+                onChange={(e) => setCustomTextInput(e.target.value)}
+                className="admin-pin-input-field"
+                style={{ fontSize: '15px', letterSpacing: 'normal', textAlign: 'left', padding: '12px 14px' }}
+              />
+              <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+                <button
+                  type="submit"
+                  className="primary-button"
+                  style={{ flex: 1, padding: '10px 16px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}
+                >
+                  ⌨️ Send to Remote PC
+                </button>
+                <button
+                  type="button"
+                  className="toolbar-pill"
+                  onClick={() => setShowTextInputDialog(false)}
+                  style={{ padding: '10px 16px' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

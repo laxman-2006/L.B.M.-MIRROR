@@ -44,6 +44,8 @@ export interface RemoteControlEvent {
     | 'key:up'
     | 'key:text'
     | 'shortcut'
+    | 'app:launch'
+    | 'open:url'
   x?: number
   y?: number
   button?: 'left' | 'right' | 'middle'
@@ -53,6 +55,8 @@ export interface RemoteControlEvent {
   code?: string
   text?: string
   name?: string
+  app?: string
+  url?: string
 }
 
 export interface ChatMessage {
@@ -864,10 +868,24 @@ export class PeerService {
     }
   }
 
-  sendShortcut(name: 'WIN' | 'TASKMGR' | 'ALTTAB' | 'EXPLORER' | 'CTRL_ALT_DEL') {
+  sendShortcut(name: 'WIN' | 'TASKMGR' | 'ALTTAB' | 'EXPLORER' | 'CTRL_ALT_DEL' | 'WIN_R' | 'WIN_D') {
     this.sendInputEvent({
       type: 'shortcut',
       name,
+    })
+  }
+
+  launchApp(app: 'chrome' | 'edge' | 'explorer' | 'notepad' | 'calc' | 'taskmgr' | string) {
+    this.sendInputEvent({
+      type: 'app:launch',
+      app,
+    })
+  }
+
+  openUrl(url: string) {
+    this.sendInputEvent({
+      type: 'open:url',
+      url,
     })
   }
 
