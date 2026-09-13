@@ -195,12 +195,20 @@ export default function App() {
   const [stats, setStats] = useState<StatsState>(DEFAULT_STATS)
   const [quality, setQuality] = useState<'Low' | 'Balanced' | 'High'>('High')
 
-  // ─── Web App Session & Pairing State ───────────────────────────────────────
+  // ─── Web App Session & Pairing State (Stable for entire session) ───────────
   const [currentPin, setCurrentPin] = useState<string>(() => {
-    return String(Math.floor(100000 + Math.random() * 900000))
+    const saved = sessionStorage.getItem('lbm_stable_host_id')
+    if (saved) return saved
+    const gen = String(Math.floor(100000 + Math.random() * 900000))
+    sessionStorage.setItem('lbm_stable_host_id', gen)
+    return gen
   })
   const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
-    return 'lbm-' + Math.random().toString(36).substring(2, 9)
+    const saved = sessionStorage.getItem('lbm_stable_session_id')
+    if (saved) return saved
+    const gen = 'lbm-' + Math.random().toString(36).substring(2, 9)
+    sessionStorage.setItem('lbm_stable_session_id', gen)
+    return gen
   })
   const [receiveQrUrl, setReceiveQrUrl] = useState<string>('')
   const [remoteMediaStream, setRemoteMediaStream] = useState<MediaStream | null>(null)
@@ -464,7 +472,7 @@ export default function App() {
     showToast('Signed out successfully.')
   }
 
-  // ─── Socket.io Connection ──────────────────────────────────────────────────
+  // ─── Socket.io Connection (Stable Single-Instance Listener) ──────────────
   useEffect(() => {
     if (!shouldConnectSocket || !signalUrl) return
 
@@ -473,14 +481,20 @@ export default function App() {
     defaultPeerService.setSocket(s)
 
     s.on('connect', () => {
-      s.emit('session:create', { hostName: 'LBM Mirror' })
+      // Coordinate with server using our stable session PIN
+      s.emit('session:create', { hostName: 'LBM Mirror', pin: currentPin })
     })
 
     s.on('session:created', (payload: any) => {
       const newSession = payload?.session || payload
       if (newSession) {
         setSession(newSession)
-        if (newSession.pin) setCurrentPin(newSession.pin)
+        // Never overwrite stable PIN while app is active
+        const stored = sessionStorage.getItem('lbm_stable_host_id')
+        if (newSession.pin && !stored) {
+          setCurrentPin(newSession.pin)
+          sessionStorage.setItem('lbm_stable_host_id', newSession.pin)
+        }
         if (newSession.sessionId) {
           setCurrentSessionId(newSession.sessionId)
           defaultWebRtcService.setSessionId(newSession.sessionId)
@@ -513,12 +527,12 @@ export default function App() {
     return () => {
       s.disconnect()
     }
-  }, [currentSessionId])
+  }, [shouldConnectSocket, signalUrl])
 
   // ─── Global Host Initialization for Remote Desktop Control (Any Tab) ───────
   useEffect(() => {
     const cleanPin = currentPin.replace(/\s+/g, '').trim()
-    const hostPasscode = sessionStorage.getItem('lbm_host_passcode') || '1234'
+    const hostPasscode = sessionStorage.getItem('lbm_stable_host_password') || sessionStorage.getItem('lbm_win_passcode') || sessionStorage.getItem('lbm_host_passcode') || '1172'
     defaultPeerService.setHostPasscode(hostPasscode)
 
     const acquireGlobalScreenStream = async (): Promise<MediaStream | null> => {

@@ -414,6 +414,29 @@ export class AdbBridge {
     }
   }
 
+  async installApk(serial) {
+    const possiblePaths = [
+      path.join(__dirname, '../../server/downloads/LBMMirror.apk'),
+      path.join(process.cwd(), 'server/downloads/LBMMirror.apk'),
+      path.join(process.cwd(), 'public/downloads/LBMMirror.apk'),
+      path.join(app ? app.getAppPath() : process.cwd(), 'public/downloads/LBMMirror.apk'),
+      path.join(process.resourcesPath || '', 'downloads/LBMMirror.apk'),
+    ]
+    const apkPath = possiblePaths.find((p) => p && fs.existsSync(p))
+    if (!apkPath) {
+      return { success: false, error: 'LBMMirror.apk not found on PC' }
+    }
+    try {
+      console.log(`[AdbBridge] Installing APK ${apkPath} to device ${serial}...`)
+      const out = await this.execAdb(['-s', serial, 'install', '-r', apkPath])
+      console.log('[AdbBridge] Install output:', out)
+      return { success: true, message: 'App installed successfully on your phone!' }
+    } catch (err) {
+      console.error('[AdbBridge] Install error:', err)
+      return { success: false, error: err.message || 'Failed to install APK over ADB' }
+    }
+  }
+
   stopMirroring() {
     if (this.mirrorProcess) {
       try {

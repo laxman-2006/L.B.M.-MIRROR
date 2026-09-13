@@ -253,27 +253,35 @@ export class PeerService {
       }
     })
 
-    this.socket.on('ultraviewer:input', (payload: any) => {
+    const handleIncomingInput = (payload: any) => {
       if (payload?.event) {
         this.handleIncomingControlEvent(payload.event)
       }
-    })
+    }
+    this.socket.on('ultraviewer:input', handleIncomingInput)
+    this.socket.on('lbm_remote:input', handleIncomingInput)
 
-    this.socket.on('ultraviewer:chat', (payload: any) => {
+    const handleIncomingChat = (payload: any) => {
       if (payload?.message && this.onChatCb) {
         this.onChatCb(payload.message)
       }
-    })
+    }
+    this.socket.on('ultraviewer:chat', handleIncomingChat)
+    this.socket.on('lbm_remote:chat', handleIncomingChat)
 
-    this.socket.on('ultraviewer:clipboard', (payload: any) => {
+    const handleIncomingClipboard = (payload: any) => {
       if (payload?.text && this.onClipboardCb) {
         this.onClipboardCb(payload.text)
       }
-    })
+    }
+    this.socket.on('ultraviewer:clipboard', handleIncomingClipboard)
+    this.socket.on('lbm_remote:clipboard', handleIncomingClipboard)
 
-    this.socket.on('ultraviewer:partner_disconnected', () => {
+    const handlePartnerDisconnect = () => {
       this.notifyStatus('disconnected', 'Remote session closed by partner.')
-    })
+    }
+    this.socket.on('ultraviewer:partner_disconnected', handlePartnerDisconnect)
+    this.socket.on('lbm_remote:partner_disconnected', handlePartnerDisconnect)
   }
 
   /**
@@ -861,6 +869,10 @@ export class PeerService {
     if (this.socket && this.socket.connected && this.activePartnerRoom) {
       try {
         this.socket.emit('ultraviewer:input', {
+          targetRoom: this.activePartnerRoom,
+          event,
+        })
+        this.socket.emit('lbm_remote:input', {
           targetRoom: this.activePartnerRoom,
           event,
         })

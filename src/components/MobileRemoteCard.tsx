@@ -25,17 +25,23 @@ export const MobileRemoteCard: React.FC<MobileRemoteCardProps> = ({
   showToast,
 }) => {
   // ─── Left Column: Your ID & Password (Allow Remote Control - Phone to PC) ───
-  const [hostId] = useState<string>(currentPin || '839201')
+  const [hostId, setHostId] = useState<string>(currentPin || '839201')
   const [hostPassword, setHostPassword] = useState<string>(() => {
-    const saved = sessionStorage.getItem('lbm_host_passcode') || sessionStorage.getItem(`lbm_${targetPlatform.toLowerCase()}_passcode`)
+    const saved = sessionStorage.getItem('lbm_stable_host_password') || sessionStorage.getItem('lbm_win_passcode') || sessionStorage.getItem('lbm_host_passcode')
     if (saved) return saved
     const gen = String(Math.floor(1000 + Math.random() * 9000))
+    sessionStorage.setItem('lbm_stable_host_password', gen)
+    sessionStorage.setItem('lbm_win_passcode', gen)
     sessionStorage.setItem('lbm_host_passcode', gen)
     return gen
   })
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
   const [allowInputControl, setAllowInputControl] = useState<boolean>(true)
   const [fps60Mode, setFps60Mode] = useState<boolean>(true)
+
+  useEffect(() => {
+    if (currentPin) setHostId(currentPin)
+  }, [currentPin])
 
   // ─── Right Column: Partner ID & Password (Control Remote Device - PC to Phone) ─
   const [partnerId, setPartnerId] = useState<string>('')
@@ -70,6 +76,8 @@ export const MobileRemoteCard: React.FC<MobileRemoteCardProps> = ({
   const handleRegeneratePassword = () => {
     const newPass = String(Math.floor(1000 + Math.random() * 9000))
     setHostPassword(newPass)
+    sessionStorage.setItem('lbm_stable_host_password', newPass)
+    sessionStorage.setItem('lbm_win_passcode', newPass)
     sessionStorage.setItem('lbm_host_passcode', newPass)
     sessionStorage.setItem(`lbm_${targetPlatform.toLowerCase()}_passcode`, newPass)
     defaultPeerService.setHostPasscode(newPass)

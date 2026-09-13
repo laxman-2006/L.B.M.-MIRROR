@@ -21,10 +21,12 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
   // ─── Host / Share State (Left Side) ────────────────────────────────────────
   const [hostId, setHostId] = useState<string>(currentPin || '839201')
   const [hostPassword, setHostPassword] = useState<string>(() => {
-    const saved = sessionStorage.getItem('lbm_win_passcode')
+    const saved = sessionStorage.getItem('lbm_stable_host_password') || sessionStorage.getItem('lbm_win_passcode') || sessionStorage.getItem('lbm_host_passcode')
     if (saved) return saved
     const gen = String(Math.floor(1000 + Math.random() * 9000))
+    sessionStorage.setItem('lbm_stable_host_password', gen)
     sessionStorage.setItem('lbm_win_passcode', gen)
+    sessionStorage.setItem('lbm_host_passcode', gen)
     return gen
   })
   const [isSharing, setIsSharing] = useState<boolean>(false)
@@ -131,7 +133,9 @@ export const WindowsRemoteStage: React.FC<WindowsRemoteStageProps> = ({
   const handleRegeneratePassword = () => {
     const newPass = String(Math.floor(1000 + Math.random() * 9000))
     setHostPassword(newPass)
+    sessionStorage.setItem('lbm_stable_host_password', newPass)
     sessionStorage.setItem('lbm_win_passcode', newPass)
+    sessionStorage.setItem('lbm_host_passcode', newPass)
     defaultPeerService.setHostPasscode(newPass)
     showToast('🔑 New Password generated!')
   }

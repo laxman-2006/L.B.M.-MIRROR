@@ -309,13 +309,22 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                   </div>
                 </div>
 
-                <div className="download-actions-row">
+                <div className="download-actions-row" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <a
                     href={apkDownloadUrl}
                     download="LBMMirror.apk"
                     className="primary-action-btn"
                   >
                     <span>📥 Download LBMMirror.apk (Android)</span>
+                  </a>
+                  <a
+                    href={`http://${activeIp}:3001/?join=${currentPin}&mode=controller`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="primary-action-btn"
+                    style={{ background: 'linear-gradient(135deg, #059669, #10b981)', borderColor: '#10b981' }}
+                  >
+                    <span>📱 Open Instant Web Controller (Zero Install)</span>
                   </a>
                 </div>
               </div>

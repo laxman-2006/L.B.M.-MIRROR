@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import logoImg from '../assets/logo.png'
+import founderCeoShowcase from '../assets/founder_ceo_showcase.jpg'
+import heroBgRemotePc from '../assets/hero_bg_remote_pc.jpg'
+import heroBgMobileGaming from '../assets/hero_bg_mobile_gaming.jpg'
+import heroBgIosAndroidDesk from '../assets/hero_bg_ios_android_desk.jpg'
+import heroBgHandsGamingUsb from '../assets/hero_bg_hands_gaming_usb.jpg'
 import { useAppSettings } from '../context/AppSettingsContext'
 import { triggerDirectExeDownload } from '../utils/directDownload'
 import { ProblemReportModal } from './ProblemReportModal'
@@ -17,7 +22,7 @@ const HERO_3D_SCENES = [
     badge: '🎮 REAL-TIME 60 FPS MOBILE GAMING MIRROR',
     glowColor: '#10b981',
     accentColor: '#34d399',
-    image: '/hero_bg_mobile_gaming.jpg',
+    image: heroBgMobileGaming,
     gradient: 'radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.1) 50%, transparent 80%)',
     icon: '🎮',
     status: 'Real-Time Gaming Stream (60 FPS)',
@@ -31,7 +36,7 @@ const HERO_3D_SCENES = [
     badge: '💻 REMOTE DESKTOP PC-TO-PC CONTROL',
     glowColor: '#00f5ff',
     accentColor: '#38bdf8',
-    image: '/hero_bg_remote_pc.jpg',
+    image: heroBgRemotePc,
     gradient: 'radial-gradient(circle at 80% 20%, rgba(0, 245, 255, 0.3) 0%, rgba(0, 163, 196, 0.1) 50%, transparent 80%)',
     icon: '💻',
     status: 'Encrypted Remote Desktop Active',
@@ -45,7 +50,7 @@ const HERO_3D_SCENES = [
     badge: '⚡ ONE APP • TWO WORLDS • UNLIMITED POSSIBILITIES',
     glowColor: '#38bdf8',
     accentColor: '#06b6d4',
-    image: '/hero_bg_ios_android_desk.jpg',
+    image: heroBgIosAndroidDesk,
     gradient: 'radial-gradient(circle at 80% 20%, rgba(56, 189, 248, 0.3) 0%, rgba(14, 165, 233, 0.1) 50%, transparent 80%)',
     icon: '📱',
     status: 'Dual iOS & Android Station Ready',
@@ -59,7 +64,7 @@ const HERO_3D_SCENES = [
     badge: '🚀 HARDWARE ACCELERATED DIRECT CAST',
     glowColor: '#f59e0b',
     accentColor: '#fbbf24',
-    image: '/hero_bg_hands_gaming_usb.jpg',
+    image: heroBgHandsGamingUsb,
     gradient: 'radial-gradient(circle at 80% 20%, rgba(245, 158, 11, 0.3) 0%, rgba(217, 119, 6, 0.1) 50%, transparent 80%)',
     icon: '⚡',
     status: 'Hardware NVENC GPU Acceleration',
@@ -91,35 +96,35 @@ export const FOUNDER_3D_PHOTOS = [
     id: 'founder-official',
     title: 'Official Executive Leadership Portrait',
     tag: '👑 Founder & CEO Profile',
-    src: '/founder_ceo_showcase.jpg',
+    src: founderCeoShowcase,
     caption: 'Laxman Choudhary — Founder & CEO, LBM Mirror Private Limited',
   },
   {
     id: 'founder-remote-desk',
     title: 'Remote Desktop & Worldwide Connectivity Station',
     tag: '💻 Windows to Windows Control',
-    src: '/hero_bg_remote_pc.jpg',
+    src: heroBgRemotePc,
     caption: 'Connecting computers across continents with zero-lag P2P relays',
   },
   {
     id: 'founder-gaming-mirror',
     title: 'Real-Time 60 FPS Mobile Gaming Casting Station',
     tag: '🎮 60 FPS Gaming Mirror',
-    src: '/hero_bg_mobile_gaming.jpg',
+    src: heroBgMobileGaming,
     caption: 'Play mobile games in 4K 60 FPS on big monitors with zero lag',
   },
   {
     id: 'founder-dual-station',
     title: 'Dual Cross-Platform iOS & Android Workstation',
     tag: '⚡ AirPlay & Direct USB Station',
-    src: '/hero_bg_ios_android_desk.jpg',
+    src: heroBgIosAndroidDesk,
     caption: 'Seamless wireless Apple AirPlay + Android direct hardware USB',
   },
   {
     id: 'founder-hands-gaming',
     title: 'Next-Gen Dual Handheld Gaming Control Hub',
     tag: '🚀 Low-Latency Hardware Hub',
-    src: '/hero_bg_hands_gaming_usb.jpg',
+    src: heroBgHandsGamingUsb,
     caption: 'Ultra-low latency screen sharing for creators, professionals & gamers',
   },
 ]
@@ -172,7 +177,14 @@ export const Founder3DPhotoCarousel: React.FC = () => {
               title={photo.title}
             >
               <div className="founder-3d-card-inner">
-                <img src={photo.src} alt={photo.title} className="founder-3d-img" />
+                <img
+                  src={photo.src}
+                  alt={photo.title}
+                  className="founder-3d-img"
+                  onError={(e) => {
+                    ;(e.currentTarget as HTMLImageElement).src = logoImg
+                  }}
+                />
                 <div className="founder-3d-card-overlay">
                   <span className="founder-3d-tag">{photo.tag}</span>
                   <strong>{photo.title}</strong>

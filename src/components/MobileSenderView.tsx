@@ -627,6 +627,68 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
               )}
             </div>
 
+            {/* Quick Virtual Mouse Bar for Precision Taps */}
+            <div className="mobile-mouse-actions-bar" style={{
+              display: 'flex',
+              gap: '6px',
+              padding: '6px 10px',
+              background: 'rgba(15, 23, 42, 0.85)',
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+              overflowX: 'auto',
+              justifyContent: 'center'
+            }}>
+              <button
+                type="button"
+                className="mobile-dock-pill"
+                onClick={() => {
+                  defaultPeerService.sendInputEvent({ type: 'mouse:click', button: 'left' })
+                  showToastMsg('🖱️ Left Click')
+                }}
+              >
+                🖱️ Left Click
+              </button>
+              <button
+                type="button"
+                className="mobile-dock-pill"
+                onClick={() => {
+                  defaultPeerService.sendInputEvent({ type: 'mouse:click', button: 'right' })
+                  showToastMsg('🖱️ Right Click')
+                }}
+              >
+                🖱️ Right Click
+              </button>
+              <button
+                type="button"
+                className="mobile-dock-pill"
+                onClick={() => {
+                  defaultPeerService.sendInputEvent({ type: 'mouse:dblclick' })
+                  showToastMsg('👆 Double Click')
+                }}
+              >
+                👆 Double Click
+              </button>
+              <button
+                type="button"
+                className="mobile-dock-pill"
+                onClick={() => {
+                  defaultPeerService.sendInputEvent({ type: 'mouse:wheel', deltaY: -120 })
+                  showToastMsg('⬆️ Scroll Up')
+                }}
+              >
+                ⬆️ Scroll Up
+              </button>
+              <button
+                type="button"
+                className="mobile-dock-pill"
+                onClick={() => {
+                  defaultPeerService.sendInputEvent({ type: 'mouse:wheel', deltaY: 120 })
+                  showToastMsg('⬇️ Scroll Down')
+                }}
+              >
+                ⬇️ Scroll Down
+              </button>
+            </div>
+
             {/* Quick Windows Shortcut & App Launcher Bar for Phones */}
             <div className="mobile-shortcuts-dock">
               <button
