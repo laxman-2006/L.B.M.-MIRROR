@@ -6839,6 +6839,63 @@ html.landing-scroll-active, body.landing-scroll-active {
   color: #fca5a5;
 }
 
+.mobile-active-workspace {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #000000;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.mobile-controller-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.mobile-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mobile-bar-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 5px 9px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mobile-bar-btn.active {
+  background: #2563eb;
+  border-color: #3b82f6;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+}
+
+.mobile-bar-btn.active-amber {
+  background: #d97706;
+  border-color: #f59e0b;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
 .mobile-interactive-surface {
   flex: 1;
   position: relative;
@@ -6849,13 +6906,47 @@ html.landing-scroll-active, body.landing-scroll-active {
   touch-action: none;
   user-select: none;
   overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+.mobile-video-pan-wrapper {
+  position: relative;
+  will-change: transform;
 }
 
 .mobile-screen-video {
   width: 100%;
   height: 100%;
-  object-fit: contain;
   pointer-events: none;
+}
+
+.mobile-screen-video.fit-fit {
+  object-fit: contain;
+}
+
+.mobile-screen-video.fit-pan {
+  object-fit: contain;
+}
+
+.mobile-screen-video.fit-stretch {
+  object-fit: fill;
+}
+
+.mobile-reset-view-pill {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  z-index: 20;
+  cursor: pointer;
 }
 
 .mobile-waiting-placeholder {
@@ -6918,4 +7009,97 @@ html.landing-scroll-active, body.landing-scroll-active {
   cursor: pointer;
   margin-right: 6px;
 }
+
+/* Mobile Download Suite Bar on Connect Card */
+.mobile-app-download-suite {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: left;
+  width: 100%;
+}
+
+.suite-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-bottom: 10px;
+}
+
+.suite-btn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.suite-dl-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.suite-dl-btn:active {
+  transform: scale(0.97);
+}
+
+.suite-dl-btn.apk-btn {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.35));
+  border-color: rgba(52, 211, 153, 0.4);
+  color: #6ee7b7;
+}
+
+.suite-dl-btn.pwa-btn {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(29, 78, 216, 0.35));
+  border-color: rgba(96, 165, 250, 0.4);
+  color: #93c5fd;
+}
+
+.suite-dl-btn .btn-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.suite-dl-btn .btn-text-block {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.suite-dl-btn .btn-text-block strong {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.suite-dl-btn .btn-text-block small {
+  font-size: 0.65rem;
+  opacity: 0.85;
+}
+
+.suite-extra-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.suite-mini-link {
+  font-size: 0.74rem;
+  color: #38bdf8;
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.suite-sep {
+  color: #475569;
+  font-size: 0.7rem;
+}
+
 

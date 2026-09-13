@@ -227,15 +227,34 @@ function getApkPath() {
   return possiblePaths.find((p) => fs.existsSync(p))
 }
 
-app.get('/api/download/android', (_req, res) => {
+const sendAndroidApk = (_req, res) => {
   const apkPath = getApkPath()
   if (apkPath) {
+    const stat = fs.statSync(apkPath)
     res.setHeader('Content-Type', 'application/vnd.android.package-archive')
     res.setHeader('Content-Disposition', 'attachment; filename="LBMMirror.apk"')
+    res.setHeader('Content-Length', stat.size)
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('Cache-Control', 'public, max-age=86400')
     return res.download(apkPath, 'LBMMirror.apk')
   }
   res.status(404).send('APK file not found on server.')
-})
+}
+
+app.get([
+  '/api/download/android',
+  '/api/download/apk',
+  '/downloads/LBMMirror.apk',
+  '/LBMMirror.apk',
+  '/download/android',
+  '/download/apk',
+], sendAndroidApk)
+
+// Static downloads directory mounting
+app.use('/downloads', express.static(path.join(__dirname, 'downloads')))
+app.use('/downloads', express.static(path.join(__dirname, '../public/downloads')))
+app.use('/downloads', express.static(path.join(process.cwd(), 'public/downloads')))
+
 
 function getWindowsInstallerPath() {
   const possiblePaths = [
@@ -336,19 +355,24 @@ app.get('/download', (req, res) => {
       <span>📱 फोन से कंप्यूटर चलाएं (Instant Mobile Control)</span>
     </a>
 
-    <!-- 2. Direct APK Download -->
-    <a href="/api/download/android" download="LBMMirror.apk" class="btn-download" id="dl-btn">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-        <polyline points="7 10 12 15 17 10"></polyline>
-        <line x1="12" y1="15" x2="12" y2="3"></line>
-      </svg>
-      <span>Download LBMMirror.apk (Android)</span>
+    <!-- 2. Direct Android APK Download -->
+    <a href="/downloads/LBMMirror.apk" download="LBMMirror.apk" class="btn-download" id="dl-apk-btn" style="background: linear-gradient(135deg, #10b981, #059669); margin-bottom: 8px;">
+      <span>🤖 डाउनलोड फॉर एंड्रॉइड APK (LBMMirror.apk)</span>
     </a>
 
-    <!-- 3. Mirror Phone to PC Screen -->
+    <!-- 3. Direct Windows .EXE Download -->
+    <a href="/api/download/windows" download="LBM_Mirror_Setup.exe" class="btn-download" id="dl-win-btn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); margin-bottom: 8px;">
+      <span>💻 डाउनलोड फॉर विंडोज (LBM_Mirror_Setup.exe)</span>
+    </a>
+
+    <!-- 4. iOS AirPlay & Web App -->
+    <a href="${directControlUrl}" class="btn-cast-direct" style="background: rgba(255,255,255,0.08); color: #f8fafc; margin-bottom: 8px;">
+      <span>🍎 डाउनलोड फॉर iOS (iPhone / iPad Web App)</span>
+    </a>
+
+    <!-- 5. Mirror Phone to PC Screen -->
     <a href="${directCastUrl}" class="btn-cast-direct">
-      <span>📺 फोन की स्क्रीन कंप्यूटर पर दिखाएं (Zero Install)</span>
+      <span>📺 फोन स्क्रीन कंप्यूटर पर दिखाएं (60 FPS Cast)</span>
     </a>
 
     <div class="steps">

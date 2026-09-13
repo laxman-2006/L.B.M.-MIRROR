@@ -40,9 +40,9 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
 
   // Download URLs
   const downloadUrl = `http://${activeIp}:3001/download?pin=${currentPin}`
-  const apkDownloadUrl = `http://${activeIp}:3001/api/download/android`
+  const apkDownloadUrl = '/downloads/LBMMirror.apk'
   const cloudUrl = `https://l-b-m-mirror.vercel.app/?join=${currentPin}&mode=sender`
-  const windowsDirectUrl = `http://${activeIp}:3001/api/download/windows`
+  const windowsDirectUrl = '/api/download/windows'
   const windowsShareLink = 'https://l-b-m-mirror.vercel.app/?download=direct'
 
   const activeQrTarget = activeTab === 'cloud' ? cloudUrl : downloadUrl
@@ -315,10 +315,10 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                     download="LBMMirror.apk"
                     className="primary-action-btn"
                   >
-                    <span>📥 Download LBMMirror.apk (Android)</span>
+                    <span>🤖 डाउनलोड फॉर एंड्रॉइड APK (LBMMirror.apk)</span>
                   </a>
                   <a
-                    href={`http://${activeIp}:3001/?join=${currentPin}&mode=controller`}
+                    href={`/?join=${currentPin}&mode=controller`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="primary-action-btn"

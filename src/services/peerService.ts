@@ -868,10 +868,6 @@ export class PeerService {
     // Priority 3: Socket.IO relay
     if (this.socket && this.socket.connected && this.activePartnerRoom) {
       try {
-        this.socket.emit('ultraviewer:input', {
-          targetRoom: this.activePartnerRoom,
-          event,
-        })
         this.socket.emit('lbm_remote:input', {
           targetRoom: this.activePartnerRoom,
           event,

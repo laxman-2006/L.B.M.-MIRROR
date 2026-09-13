@@ -43,12 +43,19 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
   const [customTextInput, setCustomTextInput] = useState('')
   const [mobileToast, setMobileToast] = useState<string | null>(null)
 
+  // Mobile Viewport, Pan & Fit Mode state
+  const [fitMode, setFitMode] = useState<'fit' | 'pan' | 'stretch'>('fit')
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [interactionMode, setInteractionMode] = useState<'control' | 'pan'>('control')
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+
   const showToastMsg = (msg: string) => {
     setMobileToast(msg)
     setTimeout(() => setMobileToast(null), 3000)
   }
 
-  // Gesture refs
+  // Gesture & Throttling refs (eliminates 120Hz event flood & video lag)
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
   const hiddenInputRef = useRef<HTMLInputElement | null>(null)
@@ -57,6 +64,53 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
   const isDraggingRef = useRef<boolean>(false)
   const longPressTimerRef = useRef<any>(null)
   const lastTwoTouchYRef = useRef<number | null>(null)
+  const lastMoveSentTimeRef = useRef<number>(0)
+  const pendingMoveRef = useRef<{ normX: number; normY: number } | null>(null)
+  const moveAnimFrameRef = useRef<number | null>(null)
+  const initialPanOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // Listen for native PWA Add to Home Screen event
+  useEffect(() => {
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+    }
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall)
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
+  }, [])
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt()
+      const choice = await deferredPrompt.userChoice
+      if (choice.outcome === 'accepted') {
+        showToastMsg('✅ LBM Mirror आपके फोन स्क्रीन पर इंस्टॉल हो गया!')
+      }
+      setDeferredPrompt(null)
+    } else {
+      const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      if (isIos) {
+        alert('🍎 iPhone पर इंस्टॉल करने के लिए:\n1. सफारी (Safari) में नीचे Share (साझा) बटन दबाएं\n2. "Add to Home Screen (होम स्क्रीन में जोड़ें)" चुनें।\nइसके बाद LBM Mirror का लोगो आपकी स्क्रीन पर आ जाएगा!')
+      } else {
+        alert('📱 फोन स्क्रीन पर ऐप इंस्टॉल करने के लिए:\nब्राउज़र के 3 डॉट्स (⋮) मेनू पर टैप करें और "Install App" या "Add to Home screen" चुनें।')
+      }
+    }
+  }
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {})
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {})
+    }
+  }
+
+  const resetView = () => {
+    setPanOffset({ x: 0, y: 0 })
+    setFitMode('fit')
+    setInteractionMode('control')
+    showToastMsg('🔄 View Reset: PC Screen 100% Fit')
+  }
 
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
@@ -150,14 +204,16 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
     let offsetX = 0
     let offsetY = 0
 
-    if (containerAspect > videoAspect) {
-      // Pillarbox (black bars on left/right)
-      renderW = containerH * videoAspect
-      offsetX = (containerW - renderW) / 2
-    } else {
-      // Letterbox (black bars on top/bottom)
-      renderH = containerW / videoAspect
-      offsetY = (containerH - renderH) / 2
+    if (fitMode !== 'stretch') {
+      if (containerAspect > videoAspect) {
+        // Pillarbox (black bars on left/right)
+        renderW = containerH * videoAspect
+        offsetX = (containerW - renderW) / 2
+      } else {
+        // Letterbox (black bars on top/bottom)
+        renderH = containerW / videoAspect
+        offsetY = (containerH - renderH) / 2
+      }
     }
 
     const clientX = touch.clientX
@@ -174,10 +230,19 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
       normX: Math.max(0, Math.min(1, relX / renderW)),
       normY: Math.max(0, Math.min(1, relY / renderH)),
     }
-  }, [])
+  }, [fitMode])
 
   // ─── Touch Gesture Handlers for Operating PC Screen ───────────────────────
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    // 1. Pan / Scroll Mode or 2-finger pan
+    if (interactionMode === 'pan' || e.touches.length === 2) {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: performance.now() }
+      initialPanOffsetRef.current = { ...panOffset }
+      return
+    }
+
+    // 2. Control Mode: 1 finger
     if (e.touches.length === 1) {
       const touch = e.touches[0]
       const coords = getNormalizedTouchCoordinates(touch)
@@ -186,7 +251,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
       touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: performance.now() }
       isDraggingRef.current = false
 
-      // Send mouse move
+      // Send initial mouse move
       defaultPeerService.sendInputEvent({
         type: 'mouse:move',
         x: coords.normX,
@@ -219,15 +284,24 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
           if (navigator.vibrate) navigator.vibrate(40)
         }
       }, 550)
-    } else if (e.touches.length === 2) {
-      // Two fingers: initialize scroll
-      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
-      const avgY = (e.touches[0].clientY + e.touches[1].clientY) / 2
-      lastTwoTouchYRef.current = avgY
     }
   }
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    // 1. Pan / Drag Screen mode or 2-finger scroll
+    if (interactionMode === 'pan' || e.touches.length === 2) {
+      if (touchStartRef.current && e.touches[0]) {
+        const deltaX = e.touches[0].clientX - touchStartRef.current.x
+        const deltaY = e.touches[0].clientY - touchStartRef.current.y
+        setPanOffset({
+          x: initialPanOffsetRef.current.x + deltaX,
+          y: initialPanOffsetRef.current.y + deltaY,
+        })
+      }
+      return
+    }
+
+    // 2. Control Mode: Mouse Move (Throttled to 33ms to completely eliminate stream lag)
     if (e.touches.length === 1) {
       const touch = e.touches[0]
       const coords = getNormalizedTouchCoordinates(touch)
@@ -241,21 +315,27 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
         }
       }
 
-      defaultPeerService.sendInputEvent({
-        type: 'mouse:move',
-        x: coords.normX,
-        y: coords.normY,
-      })
-    } else if (e.touches.length === 2 && lastTwoTouchYRef.current !== null) {
-      // Two finger vertical scroll
-      const avgY = (e.touches[0].clientY + e.touches[1].clientY) / 2
-      const deltaY = lastTwoTouchYRef.current - avgY
-      lastTwoTouchYRef.current = avgY
-
-      if (Math.abs(deltaY) > 2) {
+      const now = performance.now()
+      pendingMoveRef.current = coords
+      if (now - lastMoveSentTimeRef.current >= 33) {
+        lastMoveSentTimeRef.current = now
         defaultPeerService.sendInputEvent({
-          type: 'mouse:wheel',
-          deltaY: -deltaY * 3,
+          type: 'mouse:move',
+          x: coords.normX,
+          y: coords.normY,
+        })
+      } else if (!moveAnimFrameRef.current) {
+        moveAnimFrameRef.current = requestAnimationFrame(() => {
+          moveAnimFrameRef.current = null
+          const curr = performance.now()
+          if (pendingMoveRef.current && curr - lastMoveSentTimeRef.current >= 30) {
+            lastMoveSentTimeRef.current = curr
+            defaultPeerService.sendInputEvent({
+              type: 'mouse:move',
+              x: pendingMoveRef.current.normX,
+              y: pendingMoveRef.current.normY,
+            })
+          }
         })
       }
     }
@@ -268,10 +348,18 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
     }
     lastTwoTouchYRef.current = null
 
+    if (interactionMode === 'pan') {
+      touchStartRef.current = null
+      return
+    }
+
     if (e.changedTouches.length === 1 && touchStartRef.current && !isDraggingRef.current) {
       const touch = e.changedTouches[0]
       const coords = getNormalizedTouchCoordinates(touch)
-      if (!coords) return
+      if (!coords) {
+        touchStartRef.current = null
+        return
+      }
 
       const now = performance.now()
       const timeSinceLastTap = now - lastTapTimeRef.current
@@ -307,6 +395,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
         })
       }
     }
+    touchStartRef.current = null
   }
 
   // ─── Remote App Launch & Web Navigation ────────────────────────────────────
@@ -557,13 +646,103 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
             </form>
 
             <div className="mobile-status-pill">{statusText}</div>
+
+            {/* Direct Mobile App Downloads & Phone Home Screen Install */}
+            <div className="mobile-app-download-suite">
+              <div className="suite-title">📥 डाउनलोड ऐप्स (Official Downloads):</div>
+              <div className="suite-btn-grid">
+                <a
+                  href="/downloads/LBMMirror.apk"
+                  download="LBMMirror.apk"
+                  className="suite-dl-btn apk-btn"
+                >
+                  <span className="btn-icon">🤖</span>
+                  <div className="btn-text-block">
+                    <strong>डाउनलोड फॉर एंड्रॉइड APK</strong>
+                    <small>Direct LBMMirror.apk (Fast)</small>
+                  </div>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={handleInstallApp}
+                  className="suite-dl-btn pwa-btn"
+                >
+                  <span className="btn-icon">📱</span>
+                  <div className="btn-text-block">
+                    <strong>फोन स्क्रीन / गैलरी में लगाएं</strong>
+                    <small>1-Tap Home Screen App</small>
+                  </div>
+                </button>
+              </div>
+
+              <div className="suite-extra-row">
+                <a
+                  href="/api/download/windows"
+                  download="LBM_Mirror_Setup.exe"
+                  className="suite-mini-link"
+                >
+                  💻 डाउनलोड फॉर विंडोज (.EXE)
+                </a>
+                <span className="suite-sep">•</span>
+                <span
+                  className="suite-mini-link"
+                  onClick={() => alert('🍎 iOS (iPhone/iPad): Safari में नीचे Share बटन दबाकर "Add to Home Screen" चुनें।')}
+                >
+                  🍎 डाउनलोड फॉर iOS
+                </span>
+              </div>
+            </div>
           </div>
         ) : (
-          /* Live Remote Interactive Workspace */
+          /* Live Remote Interactive Workspace (100dvh Edge-to-Edge) */
           <div className="mobile-active-workspace">
             {/* Top Toolbar over video */}
             <div className="mobile-controller-topbar">
-              <span className="mobile-live-badge">🟢 LIVE • PC Desktop</span>
+              <div className="mobile-topbar-left">
+                <span className="mobile-live-badge">🟢 LIVE</span>
+
+                {/* Display Fit Mode Selector */}
+                <button
+                  type="button"
+                  className={`mobile-bar-btn ${fitMode === 'fit' ? 'active' : ''}`}
+                  onClick={() => {
+                    setFitMode('fit')
+                    setPanOffset({ x: 0, y: 0 })
+                    setInteractionMode('control')
+                    showToastMsg('📐 Fit Mode: Full PC Screen Visible (बिना कटे)')
+                  }}
+                  title="Fit Screen (पूरा देखें)"
+                >
+                  📐 Fit
+                </button>
+
+                <button
+                  type="button"
+                  className={`mobile-bar-btn ${fitMode === 'pan' ? 'active' : ''}`}
+                  onClick={() => {
+                    setFitMode('pan')
+                    setInteractionMode('pan')
+                    showToastMsg('🔍 Zoom & Pan Mode: Drag finger to scroll across desktop')
+                  }}
+                  title="Zoom & Pan (ज़ूम और सरकाएं)"
+                >
+                  🔍 Zoom
+                </button>
+
+                <button
+                  type="button"
+                  className={`mobile-bar-btn ${interactionMode === 'pan' ? 'active-amber' : ''}`}
+                  onClick={() => {
+                    const nextMode = interactionMode === 'pan' ? 'control' : 'pan'
+                    setInteractionMode(nextMode)
+                    showToastMsg(nextMode === 'pan' ? '✋ Pan Mode: Drag finger to slide screen' : '🖱️ Touch Mode: Tap to click')
+                  }}
+                  title="Toggle Pan / Touch Mode"
+                >
+                  {interactionMode === 'pan' ? '✋ Pan' : '🖱️ Touch'}
+                </button>
+              </div>
 
               <div className="mobile-topbar-actions">
                 <button
@@ -577,20 +756,16 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                   }}
                   title="Toggle Keyboard"
                 >
-                  ⌨️ Keyboard
+                  ⌨️
                 </button>
 
                 <button
                   type="button"
                   className="mobile-bar-btn"
-                  onClick={() => {
-                    if (remoteVideoRef.current) {
-                      remoteVideoRef.current.requestFullscreen().catch(() => {})
-                    }
-                  }}
-                  title="Fullscreen"
+                  onClick={toggleFullscreen}
+                  title="Fullscreen (फुलस्क्रीन)"
                 >
-                  ⛶ Fullscreen
+                  {isFullscreen ? '⤦' : '⛶'}
                 </button>
 
                 <button
@@ -606,24 +781,49 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
 
             {/* Interactive PC Screen Surface */}
             <div
-              className="mobile-interactive-surface"
+              className={`mobile-interactive-surface mode-${fitMode}`}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
             >
               {remoteStream ? (
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="mobile-screen-video"
-                />
+                <div
+                  className="mobile-video-pan-wrapper"
+                  style={{
+                    transform: fitMode === 'pan' ? `scale(1.55) translate(${panOffset.x}px, ${panOffset.y}px)` : undefined,
+                    transition: isDraggingRef.current ? 'none' : 'transform 0.1s ease-out',
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <video
+                    ref={remoteVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`mobile-screen-video fit-${fitMode}`}
+                  />
+                </div>
               ) : (
                 <div className="mobile-waiting-placeholder">
                   <div className="spinner-mini" />
-                  <p>Streaming PC Desktop...</p>
+                  <p>Streaming PC Desktop at 60 FPS...</p>
                 </div>
+              )}
+
+              {/* Reset View Pill (Visible when panned or zoomed) */}
+              {(fitMode === 'pan' || panOffset.x !== 0 || panOffset.y !== 0) && (
+                <button
+                  type="button"
+                  className="mobile-reset-view-pill"
+                  onClick={resetView}
+                  title="Reset screen position"
+                >
+                  ↺ Reset Screen
+                </button>
               )}
             </div>
 

@@ -324,10 +324,24 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
   const [showFounderLightbox, setShowFounderLightbox] = useState<boolean>(false)
   // User Problem / Support Desk Modal
   const [showSupportModal, setShowSupportModal] = useState<boolean>(false)
+  // iOS AirPlay & App Modal
+  const [showIosModal, setShowIosModal] = useState<boolean>(false)
+  // Native PWA deferred install prompt
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
 
   const activeLogo = settings.appLogo || logoImg
   const shareableDownloadLink = 'https://l-b-m-mirror.vercel.app/?download=direct'
   const currentScene = HERO_3D_SCENES[sceneIndex]
+
+  // Listen for native PWA installation event
+  useEffect(() => {
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+    }
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall)
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
+  }, [])
 
   // Enable full native page scrolling for the landing page
   useEffect(() => {
@@ -383,13 +397,49 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
     setTimeout(() => setCopiedLink(false), 2500)
   }
 
-  const handleDownload = () => {
+  // 1. Windows Installer .EXE
+  const handleDownloadWindows = () => {
     showToast('🚀 Downloading Setup (.EXE) directly to your Downloads folder...')
     triggerDirectExeDownload('LBM_Mirror_Setup.exe')
   }
 
+  // 2. Android APK direct download
+  const handleDownloadApk = () => {
+    showToast('🤖 Downloading LBMMirror.apk (Android)...')
+    const link = document.createElement('a')
+    link.href = '/downloads/LBMMirror.apk'
+    link.download = 'LBMMirror.apk'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  // 3. iOS Download & Setup
+  const handleDownloadIos = () => {
+    setShowIosModal(true)
+  }
+
+  // 4. 1-Click Install to Phone Screen (PWA - Places real LBM icon on phone screen)
+  const handleInstallPwa = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt()
+      const choice = await deferredPrompt.userChoice
+      if (choice.outcome === 'accepted') {
+        showToast('✅ LBM Mirror आपके फोन स्क्रीन पर इंस्टॉल हो गया!')
+      }
+      setDeferredPrompt(null)
+    } else {
+      const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      if (isIos) {
+        setShowIosModal(true)
+      } else {
+        showToast('📱 फोन स्क्रीन पर ऐप लगाने के लिए: ब्राउज़र मेनू (⋮) में "Add to Home screen" चुनें।')
+      }
+    }
+  }
+
   const whatsappShareText = encodeURIComponent(
-    `🚀 Download LBM Mirror Setup (.EXE) - Free 60 FPS Screen Mirroring & High-Speed Remote Desktop for Windows:\n${shareableDownloadLink}`
+    `🚀 Download LBM Mirror - Free 60 FPS Screen Mirroring & High-Speed Remote Desktop:\n${shareableDownloadLink}`
   )
 
   return (
@@ -488,11 +538,14 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
           <button type="button" className="btn-header-support" onClick={() => setShowSupportModal(true)} title="Report Problem / 24/7 Support (समस्या दर्ज करें)">
             <span>🛠️ 24/7 Support</span>
           </button>
+          <button type="button" className="btn-header-apk" onClick={handleDownloadApk} title="Download Android APK (LBMMirror.apk)">
+            <span>🤖 ANDROID APK</span>
+          </button>
+          <button type="button" className="btn-header-download" onClick={handleDownloadWindows} title="Directly Download Complete Windows Setup .exe">
+            <span>💻 DOWNLOAD (.EXE)</span>
+          </button>
           <button type="button" className="btn-launch-web" onClick={onOpenApp} title="Open in Browser without Installing">
             <span>🌐 Open Web App</span>
-          </button>
-          <button type="button" className="btn-header-download" onClick={handleDownload} title="Directly Download Complete Windows Setup .exe to Downloads folder">
-            <span>⬇️ DOWNLOAD SETUP (.EXE)</span>
           </button>
         </div>
       </header>
@@ -516,7 +569,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
             <span style={{ fontSize: '1.1rem' }}>{currentScene.icon}</span>
             <span>{currentScene.badge}</span>
             <span style={{ color: '#94a3b8' }}>•</span>
-            <span style={{ color: '#e2e8f0' }}>Windows 11 / 10 / 8 / 7 • 64-Bit Desktop</span>
+            <span style={{ color: '#e2e8f0' }}>Windows 11 / 10 / 8 / 7 • Android • iOS</span>
           </div>
 
           {/* 5-Second Progress Countdown Bar */}
@@ -545,13 +598,69 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
             </p>
           </div>
 
-          <div className="hero-cta-row">
-            <button type="button" className="hero-download-pill-btn" onClick={handleDownload}>
-              <span>⬇️ Download for Windows (.EXE)</span>
+          {/* ─── 3 Prominent User-Requested Download Buttons ─── */}
+          <div className="hero-3-downloads-grid">
+            {/* 1. Download for Windows */}
+            <button
+              type="button"
+              className="hero-dl-main-btn win-btn"
+              onClick={handleDownloadWindows}
+              title="Download Windows .EXE Installer"
+            >
+              <span className="dl-icon">💻</span>
+              <div className="dl-text">
+                <span className="dl-title">डाउनलोड फॉर विंडोज</span>
+                <span className="dl-sub">.EXE Installer • Windows 11/10/8/7</span>
+              </div>
             </button>
 
-            <button type="button" className="hero-secondary-cta" onClick={onOpenApp}>
-              <span>🌐 Launch Web App (Instant)</span>
+            {/* 2. Download for Android APK */}
+            <button
+              type="button"
+              className="hero-dl-main-btn apk-btn"
+              onClick={handleDownloadApk}
+              title="Download Android APK (LBMMirror.apk)"
+            >
+              <span className="dl-icon">🤖</span>
+              <div className="dl-text">
+                <span className="dl-title">डाउनलोड फॉर एंड्रॉइड APK</span>
+                <span className="dl-sub">Direct LBMMirror.apk • Official App</span>
+              </div>
+            </button>
+
+            {/* 3. Download for iOS */}
+            <button
+              type="button"
+              className="hero-dl-main-btn ios-btn"
+              onClick={handleDownloadIos}
+              title="Setup on iPhone & iPad"
+            >
+              <span className="dl-icon">🍎</span>
+              <div className="dl-text">
+                <span className="dl-title">डाउनलोड फॉर iOS</span>
+                <span className="dl-sub">iPhone &amp; iPad • AirPlay Mirror</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Secondary Action Row: 1-Click Phone Screen Install (PWA) & Instant Web App */}
+          <div className="hero-cta-row secondary-cta-row">
+            <button
+              type="button"
+              className="hero-pwa-install-btn"
+              onClick={handleInstallPwa}
+              title="Add LBM Mirror App Icon directly to your Phone Home Screen / Gallery"
+            >
+              <span>📱 फोन स्क्रीन / गैलरी में ऐप लगाएं (1-Tap Home Screen App)</span>
+            </button>
+
+            <button
+              type="button"
+              className="hero-secondary-cta"
+              onClick={onOpenApp}
+              title="Launch Web App directly in browser without installing"
+            >
+              <span>🌐 Launch Web App (बिना इंस्टॉल तुरंत चलाएं)</span>
             </button>
           </div>
 
@@ -1003,7 +1112,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
               Launch Web App
             </button>
             <span>•</span>
-            <button type="button" onClick={handleDownload} style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', fontSize: '0.84rem' }}>
+            <button type="button" onClick={handleDownloadWindows} style={{ background: 'none', border: 'none', color: '#38bdf8', cursor: 'pointer', fontSize: '0.84rem' }}>
               Download Windows .exe
             </button>
             <span>•</span>
@@ -1050,6 +1159,54 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
         isOpen={showSupportModal}
         onClose={() => setShowSupportModal(false)}
       />
+
+      {/* ─── 11. iOS AirPlay & Setup Modal ─── */}
+      {showIosModal && (
+        <div className="auth-modal-overlay" onClick={() => setShowIosModal(false)}>
+          <div className="ios-modal-card" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="download-close-btn"
+              onClick={() => setShowIosModal(false)}
+              title="Close"
+            >
+              ✕
+            </button>
+            <div className="ios-modal-header">
+              <span style={{ fontSize: '2.5rem' }}>🍎</span>
+              <h3>LBM Mirror for iOS (iPhone &amp; iPad)</h3>
+              <p>Apple डिवाइस पर LBM Mirror चलाने के 2 सुपर-फास्ट विकल्प:</p>
+            </div>
+            <div className="ios-modal-steps">
+              <div className="ios-step-item">
+                <div className="ios-step-num">1</div>
+                <div>
+                  <strong>Apple AirPlay 60 FPS Wireless Mirror:</strong>
+                  <p>अपने iPhone / iPad के <em>Control Center</em> में जाएं, <strong>Screen Mirroring</strong> पर टैप करें और <strong>LBM Mirror</strong> चुनें। आपकी पूरी मोबाइल स्क्रीन 60 FPS पर कंप्यूटर पर दिखेगी।</p>
+                </div>
+              </div>
+              <div className="ios-step-item">
+                <div className="ios-step-num">2</div>
+                <div>
+                  <strong>1-Tap Home Screen App Icon (फोन स्क्रीन पर ऐप):</strong>
+                  <p>iPhone सफारी (Safari) में नीचे <strong>Share (साझा)</strong> बटन दबाएं और <strong>"Add to Home Screen (होम स्क्रीन में जोड़ें)"</strong> चुनें। LBM Mirror का असली लोगो आपके iPhone स्क्रीन पर आ जाएगा।</p>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="hero-download-pill-btn"
+              style={{ width: '100%', marginTop: '16px', display: 'flex', justifyContent: 'center' }}
+              onClick={() => {
+                setShowIosModal(false)
+                onOpenApp()
+              }}
+            >
+              <span>🌐 Open iOS Web Client Now</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
