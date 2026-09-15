@@ -6,7 +6,7 @@ import heroBgMobileGaming from '../assets/hero_bg_mobile_gaming.jpg'
 import heroBgIosAndroidDesk from '../assets/hero_bg_ios_android_desk.jpg'
 import heroBgHandsGamingUsb from '../assets/hero_bg_hands_gaming_usb.jpg'
 import { useAppSettings } from '../context/AppSettingsContext'
-import { triggerDirectExeDownload } from '../utils/directDownload'
+import { triggerDirectExeDownload, triggerDirectApkDownload } from '../utils/directDownload'
 import { ProblemReportModal } from './ProblemReportModal'
 import './LandingDownloadPage.css'
 
@@ -406,12 +406,7 @@ export const LandingDownloadPage: React.FC<LandingDownloadPageProps> = ({ onOpen
   // 2. Android APK direct download
   const handleDownloadApk = () => {
     showToast('🤖 Downloading LBMMirror.apk (Android)...')
-    const link = document.createElement('a')
-    link.href = '/downloads/LBMMirror.apk'
-    link.download = 'LBMMirror.apk'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    triggerDirectApkDownload('LBMMirror.apk')
   }
 
   // 3. iOS Download & Setup

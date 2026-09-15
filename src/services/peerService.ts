@@ -328,7 +328,26 @@ export class PeerService {
     }
 
     streamToShare.getTracks().forEach((track) => {
+      if (track.kind === 'video') {
+        try {
+          (track as any).contentHint = 'motion'
+        } catch {}
+      }
       pc.addTrack(track, streamToShare!)
+    })
+
+    pc.getSenders().forEach((sender) => {
+      if (sender.track?.kind === 'video') {
+        try {
+          const params = sender.getParameters()
+          if (!params.encodings || params.encodings.length === 0) {
+            params.encodings = [{}]
+          }
+          params.encodings[0].maxBitrate = 8000000
+          params.encodings[0].maxFramerate = 60
+          sender.setParameters(params).catch(() => {})
+        } catch {}
+      }
     })
 
     try {
@@ -499,7 +518,31 @@ export class PeerService {
             streamToAnswer = createFallbackVideoStream('LBM Host Screen')
           }
 
+          const videoTrack = streamToAnswer.getVideoTracks()[0]
+          if (videoTrack) {
+            try {
+              (videoTrack as any).contentHint = 'motion'
+            } catch {}
+          }
+
           mediaConn.answer(streamToAnswer)
+
+          try {
+            const pc = (mediaConn as any).peerConnection as RTCPeerConnection | undefined
+            if (pc) {
+              pc.getSenders().forEach((sender) => {
+                if (sender.track?.kind === 'video') {
+                  const params = sender.getParameters()
+                  if (!params.encodings || params.encodings.length === 0) {
+                    params.encodings = [{}]
+                  }
+                  params.encodings[0].maxBitrate = 8000000
+                  params.encodings[0].maxFramerate = 60
+                  sender.setParameters(params).catch(() => {})
+                }
+              })
+            }
+          } catch {}
 
           mediaConn.on('stream', (remoteStream) => {
             this.notifyStatus('connected', 'Live screen stream active at 60 FPS!')

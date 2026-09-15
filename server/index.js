@@ -260,8 +260,8 @@ function getWindowsInstallerPath() {
   const possiblePaths = [
     path.join(__dirname, '../release/LBM_Mirror_Setup.exe'),
     path.join(process.cwd(), 'release/LBM_Mirror_Setup.exe'),
-    path.join(__dirname, '../release/AEROMEN_SETUP.exe'),
-    path.join(process.cwd(), 'release/AEROMEN_SETUP.exe'),
+    path.join(__dirname, '../public/downloads/LBM_Mirror_Setup.exe'),
+    path.join(process.cwd(), 'public/downloads/LBM_Mirror_Setup.exe'),
     path.join(__dirname, '../release/LBM Mirror Setup 1.0.0.exe'),
     path.join(process.cwd(), 'release/LBM Mirror Setup 1.0.0.exe'),
     path.join(__dirname, 'downloads/LBM_Mirror_Setup.exe'),
@@ -293,12 +293,9 @@ app.get([
   '/LBM_Mirror_Setup.exe',
   '/LBM-Mirror-Setup.exe',
   '/setup.exe',
+  '/AEROMEN_SETUP.exe',
 ], (req, res) => {
   sendWindowsInstaller(req, res, 'LBM_Mirror_Setup.exe')
-})
-
-app.get('/AEROMEN_SETUP.exe', (req, res) => {
-  sendWindowsInstaller(req, res, 'AEROMEN_SETUP.exe')
 })
 
 // Mobile & Desktop download route

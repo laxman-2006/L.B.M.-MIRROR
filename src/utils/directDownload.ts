@@ -9,9 +9,9 @@
  */
 
 export function getDirectExeDownloadUrl(): string {
-  // 1. If running in browser connected to local server or LAN:
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname || 'localhost'
+    const port = window.location.port
     const isLocal =
       hostname === 'localhost' ||
       hostname === '127.0.0.1' ||
@@ -20,13 +20,44 @@ export function getDirectExeDownloadUrl(): string {
       hostname.startsWith('172.')
 
     if (isLocal) {
-      // Use local server port 3001 direct download endpoint
+      if (port === '3001') {
+        return '/api/download/windows'
+      }
       return `http://${hostname}:3001/api/download/windows`
     }
+
+    // Direct static path if hosted
+    return '/downloads/LBM_Mirror_Setup.exe'
   }
 
-  // 2. Direct Cloud Binary URL (GitHub releases direct attachment download)
   return 'https://github.com/laxman-2006/L.B.M.-MIRROR/releases/download/v1.0.0/LBM_Mirror_Setup.exe'
+}
+
+export function getDirectApkDownloadUrl(): string {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname || 'localhost'
+    const port = window.location.port
+    const isLocal =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('172.')
+
+    if (isLocal) {
+      if (port === '3001') {
+        return '/api/download/android'
+      }
+      return `http://${hostname}:3001/api/download/android`
+    }
+
+    // Hosted/Production: use absolute URL to ensure correct APK file is served
+    const origin = window.location.origin
+    return `${origin}/downloads/LBMMirror.apk`
+  }
+
+  // Absolute fallback for SSR or unknown environments
+  return 'https://l-b-m-mirror.vercel.app/downloads/LBMMirror.apk'
 }
 
 /**
@@ -36,7 +67,6 @@ export function getDirectExeDownloadUrl(): string {
 export function triggerDirectExeDownload(fileName: string = 'LBM_Mirror_Setup.exe', customUrl?: string): void {
   const downloadUrl = customUrl || getDirectExeDownloadUrl()
 
-  // Standard invisible anchor element with download attribute
   const link = document.createElement('a')
   link.href = downloadUrl
   link.setAttribute('download', fileName)
@@ -45,11 +75,9 @@ export function triggerDirectExeDownload(fileName: string = 'LBM_Mirror_Setup.ex
   link.style.top = '-9999px'
   link.style.opacity = '0'
 
-  // DO NOT use target="_blank" so the browser doesn't flash a blank white window
   document.body.appendChild(link)
   link.click()
 
-  // Clean up element after triggering download
   setTimeout(() => {
     try {
       if (document.body.contains(link)) {
@@ -58,3 +86,30 @@ export function triggerDirectExeDownload(fileName: string = 'LBM_Mirror_Setup.ex
     } catch {}
   }, 1000)
 }
+
+/**
+ * Triggers an immediate Android APK download directly to user's device.
+ */
+export function triggerDirectApkDownload(fileName: string = 'LBMMirror.apk', customUrl?: string): void {
+  const downloadUrl = customUrl || getDirectApkDownloadUrl()
+
+  const link = document.createElement('a')
+  link.href = downloadUrl
+  link.setAttribute('download', fileName)
+  link.style.position = 'fixed'
+  link.style.left = '-9999px'
+  link.style.top = '-9999px'
+  link.style.opacity = '0'
+
+  document.body.appendChild(link)
+  link.click()
+
+  setTimeout(() => {
+    try {
+      if (document.body.contains(link)) {
+        document.body.removeChild(link)
+      }
+    } catch {}
+  }, 1000)
+}
+

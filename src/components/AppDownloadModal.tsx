@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 import logoImg from '../assets/logo.png'
 import { useAppSettings } from '../context/AppSettingsContext'
-import { triggerDirectExeDownload } from '../utils/directDownload'
+import { triggerDirectExeDownload, triggerDirectApkDownload } from '../utils/directDownload'
 
 interface AppDownloadModalProps {
   localIp: string
@@ -12,7 +12,7 @@ interface AppDownloadModalProps {
 }
 
 export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
-  localIp,
+  localIp: _localIp,
   currentPin = '839201',
   initialTab = 'windows',
   onClose,
@@ -27,7 +27,6 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
   const [usbInstallStatus, setUsbInstallStatus] = useState<string | null>(null)
 
   const isElectron = typeof window !== 'undefined' && Boolean(window.electronAPI?.isElectron)
-  const activeIp = localIp && localIp !== '127.0.0.1' ? localIp : 'localhost'
 
   // Query USB devices on mount if inside Electron
   useEffect(() => {
@@ -39,13 +38,13 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
   }, [isElectron])
 
   // Download URLs
-  const downloadUrl = `http://${activeIp}:3001/download?pin=${currentPin}`
-  const apkDownloadUrl = '/downloads/LBMMirror.apk'
   const cloudUrl = `https://l-b-m-mirror.vercel.app/?join=${currentPin}&mode=sender`
   const windowsDirectUrl = '/api/download/windows'
   const windowsShareLink = 'https://l-b-m-mirror.vercel.app/?download=direct'
+  // APK QR code always points to the official direct APK download page (not local server)
+  const apkDownloadPageUrl = 'https://l-b-m-mirror.vercel.app/download'
 
-  const activeQrTarget = activeTab === 'cloud' ? cloudUrl : downloadUrl
+  const activeQrTarget = activeTab === 'cloud' ? cloudUrl : apkDownloadPageUrl
 
   useEffect(() => {
     if (activeTab === 'android' || activeTab === 'cloud') {
@@ -310,13 +309,13 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                 </div>
 
                 <div className="download-actions-row" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <a
-                    href={apkDownloadUrl}
-                    download="LBMMirror.apk"
+                  <button
+                    type="button"
+                    onClick={() => triggerDirectApkDownload('LBMMirror.apk')}
                     className="primary-action-btn"
                   >
                     <span>🤖 डाउनलोड फॉर एंड्रॉइड APK (LBMMirror.apk)</span>
-                  </a>
+                  </button>
                   <a
                     href={`/?join=${currentPin}&mode=controller`}
                     target="_blank"

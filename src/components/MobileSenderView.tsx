@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import logoImg from '../assets/logo.png'
 import { defaultPeerService, createFallbackVideoStream } from '../services/peerService'
 import { useAppSettings } from '../context/AppSettingsContext'
+import { triggerDirectExeDownload, triggerDirectApkDownload } from '../utils/directDownload'
 import type { Socket } from 'socket.io-client'
 
 interface MobileSenderViewProps {
@@ -17,24 +18,60 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
 }) => {
   const { settings } = useAppSettings()
 
-  // Primary mode on mobile: 'controller' (Control PC from Phone) vs 'sender' (Cast Phone to PC)
-  const [mobileMode, setMobileMode] = useState<'controller' | 'sender'>(() => {
+  // 3 Primary modes on mobile:
+  // 1. 'controller' -> Enter Partner ID to control PC or another Phone
+  // 2. 'host' -> Generate My Phone ID & Password to share this phone's screen
+  // 3. 'sender' -> Quick 1-click Screen Cast to PC monitor
+  const [mobileMode, setMobileMode] = useState<'controller' | 'host' | 'sender'>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
-      if (params.get('mode') === 'controller') return 'controller'
+      const m = params.get('mode')
+      if (m === 'controller') return 'controller'
+      if (m === 'host') return 'host'
+      if (m === 'sender') return 'sender'
     }
     return 'controller'
   })
 
-  // ─── Connection & State ───────────────────────────────────────────────────
+  // ─── Connection & Controller State ─────────────────────────────────────────
   const [pin, setPin] = useState(initialPin)
   const [passcode, setPasscode] = useState('')
   const [connected, setConnected] = useState(false)
-  const [isCasting, setIsCasting] = useState(false)
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
-  const [statusText, setStatusText] = useState('Enter PC Remote ID & Password to connect')
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
+  const [statusText, setStatusText] = useState('Enter Partner ID & Password to connect')
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
+
+  // ─── My Phone Host (Share This Phone) State ────────────────────────────────
+  const [myMobilePin, setMyMobilePin] = useState<string>(() => {
+    const saved = typeof window !== 'undefined' ? sessionStorage.getItem('lbm_my_mobile_id') : null
+    if (saved) return saved
+    const gen = String(Math.floor(100000 + Math.random() * 900000))
+    if (typeof window !== 'undefined') sessionStorage.setItem('lbm_my_mobile_id', gen)
+    return gen
+  })
+  const [myMobilePasscode, setMyMobilePasscode] = useState<string>(() => {
+    const saved = typeof window !== 'undefined' ? sessionStorage.getItem('lbm_my_mobile_pass') : null
+    if (saved) return saved
+    const gen = String(Math.floor(1000 + Math.random() * 9000))
+    if (typeof window !== 'undefined') sessionStorage.setItem('lbm_my_mobile_pass', gen)
+    return gen
+  })
+  const [isSharingMyScreen, setIsSharingMyScreen] = useState(false)
+  const [copiedPin, setCopiedPin] = useState(false)
+
+  // ─── Sender Mode (Legacy Cast) ─────────────────────────────────────────────
+  const [isCasting, setIsCasting] = useState(false)
+
+  // ─── Stream Orientation & Responsive Viewport State ────────────────────────
+  const [isVideoPortrait, setIsVideoPortrait] = useState<boolean>(false)
+  const [fitMode, setFitMode] = useState<'fit' | 'pan' | 'stretch'>('fit')
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [interactionMode, setInteractionMode] = useState<'control' | 'pan'>('control')
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+
+  // ─── Controls & Modal Popups ──────────────────────────────────────────────
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [virtualText, setVirtualText] = useState('')
   const [showUrlPrompt, setShowUrlPrompt] = useState(false)
@@ -43,19 +80,12 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
   const [customTextInput, setCustomTextInput] = useState('')
   const [mobileToast, setMobileToast] = useState<string | null>(null)
 
-  // Mobile Viewport, Pan & Fit Mode state
-  const [fitMode, setFitMode] = useState<'fit' | 'pan' | 'stretch'>('fit')
-  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
-  const [interactionMode, setInteractionMode] = useState<'control' | 'pan'>('control')
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
-
   const showToastMsg = (msg: string) => {
     setMobileToast(msg)
     setTimeout(() => setMobileToast(null), 3000)
   }
 
-  // Gesture & Throttling refs (eliminates 120Hz event flood & video lag)
+  // ─── Gesture & Throttling Refs (Smooth 60 FPS Engine) ───────────────────────
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
   const hiddenInputRef = useRef<HTMLInputElement | null>(null)
@@ -90,9 +120,13 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
     } else {
       const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
       if (isIos) {
-        alert('🍎 iPhone पर इंस्टॉल करने के लिए:\n1. सफारी (Safari) में नीचे Share (साझा) बटन दबाएं\n2. "Add to Home Screen (होम स्क्रीन में जोड़ें)" चुनें।\nइसके बाद LBM Mirror का लोगो आपकी स्क्रीन पर आ जाएगा!')
+        alert(
+          '🍎 iPhone / iPad पर इंस्टॉल करने के लिए:\n1. Safari में नीचे Share (साझा) बटन दबाएं\n2. "Add to Home Screen (होम स्क्रीन में जोड़ें)" चुनें।\nइसके बाद LBM Mirror का लोगो आपकी स्क्रीन पर आ जाएगा!'
+        )
       } else {
-        alert('📱 फोन स्क्रीन पर ऐप इंस्टॉल करने के लिए:\nब्राउज़र के 3 डॉट्स (⋮) मेनू पर टैप करें और "Install App" या "Add to Home screen" चुनें।')
+        alert(
+          '📱 फोन स्क्रीन पर ऐप इंस्टॉल करने के लिए:\nब्राउज़र के 3 डॉट्स (⋮) मेनू पर टैप करें और "Install App" या "Add to Home screen" चुनें।'
+        )
       }
     }
   }
@@ -109,9 +143,10 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
     setPanOffset({ x: 0, y: 0 })
     setFitMode('fit')
     setInteractionMode('control')
-    showToastMsg('🔄 View Reset: PC Screen 100% Fit')
+    showToastMsg('🔄 View Reset: 100% Fit')
   }
 
+  // Handle stream assignment to video element
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream
@@ -119,13 +154,26 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
     }
   }, [remoteStream])
 
+  // Detect orientation (Portrait mobile vs Landscape PC) when video loads
+  const handleLoadedMetadata = () => {
+    const v = remoteVideoRef.current
+    if (v && v.videoHeight && v.videoWidth) {
+      const isPortrait = v.videoHeight > v.videoWidth
+      setIsVideoPortrait(isPortrait)
+      if (isPortrait) {
+        setFitMode('fit')
+      }
+    }
+  }
+
   // Setup Peer Service callbacks
   useEffect(() => {
     defaultPeerService.setOnRemoteStream((stream) => {
       setRemoteStream(stream)
       setConnected(true)
       setConnecting(false)
-      setStatusText('🟢 Live PC Desktop Active (Touch & Keyboard Ready)')
+      setStatusText('🟢 Live Screen Stream Active (60 FPS Ultra-Smooth)')
+      showToastMsg('🟢 Live Screen Connected at 60 FPS!')
     })
 
     defaultPeerService.setOnConnectionState((state, detail) => {
@@ -144,11 +192,10 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
         setConnecting(false)
         setConnected(false)
         setRemoteStream(null)
-        setStatusText(detail || 'Disconnected from PC.')
+        setStatusText(detail || 'Disconnected.')
       }
     })
 
-    // If initialPin was provided in URL (e.g. ?join=839201), auto-set
     if (initialPin && initialPin.length >= 5) {
       setPin(initialPin)
     }
@@ -160,328 +207,98 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
     }
   }, [initialPin])
 
-  // ─── Connect to PC Remote Desktop ─────────────────────────────────────────
-  const handleConnectToPc = async (e?: React.FormEvent) => {
+  // ─── 1. Connect to Remote Partner (PC or Another Mobile) ────────────────────
+  const handleConnectToPartner = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     setConnectError(null)
 
     const cleanPin = pin.replace(/\s+/g, '').trim()
     if (!cleanPin || cleanPin.length < 5) {
-      setConnectError('Please enter valid 6-digit PC ID')
+      setConnectError('कृपया मान्य 6-डिजिट Partner ID दर्ज करें (Please enter valid 6-digit ID)')
       return
     }
 
     setConnecting(true)
-    setStatusText(`Connecting to PC (${cleanPin})...`)
+    setStatusText(`Connecting to Partner (${cleanPin}) at 60 FPS...`)
 
     try {
       const dummyStream = createFallbackVideoStream('LBM Mobile Controller')
       await defaultPeerService.connectToPartner(cleanPin, passcode.trim(), dummyStream)
     } catch (err: any) {
       setConnecting(false)
-      setConnectError(err.message || 'Could not connect to PC.')
+      setConnectError(err.message || 'Could not connect to partner.')
     }
   }
 
-  // ─── Touch to Mouse Coordinate Calculator ─────────────────────────────────
-  const getNormalizedTouchCoordinates = useCallback((touch: React.Touch) => {
-    const video = remoteVideoRef.current
-    if (!video) return null
+  // ─── 2. Share My Phone Screen (Host Mode) ──────────────────────────────────
+  const handleStartMyMobileShare = async () => {
+    try {
+      let stream: MediaStream | null = null
 
-    const rect = video.getBoundingClientRect()
-    if (rect.width === 0 || rect.height === 0) return null
-
-    const videoW = video.videoWidth || 1920
-    const videoH = video.videoHeight || 1080
-    const containerW = rect.width
-    const containerH = rect.height
-
-    const videoAspect = videoW / videoH
-    const containerAspect = containerW / containerH
-
-    let renderW = containerW
-    let renderH = containerH
-    let offsetX = 0
-    let offsetY = 0
-
-    if (fitMode !== 'stretch') {
-      if (containerAspect > videoAspect) {
-        // Pillarbox (black bars on left/right)
-        renderW = containerH * videoAspect
-        offsetX = (containerW - renderW) / 2
-      } else {
-        // Letterbox (black bars on top/bottom)
-        renderH = containerW / videoAspect
-        offsetY = (containerH - renderH) / 2
-      }
-    }
-
-    const clientX = touch.clientX
-    const clientY = touch.clientY
-
-    const relX = clientX - rect.left - offsetX
-    const relY = clientY - rect.top - offsetY
-
-    if (relX < 0 || relX > renderW || relY < 0 || relY > renderH) {
-      return null
-    }
-
-    return {
-      normX: Math.max(0, Math.min(1, relX / renderW)),
-      normY: Math.max(0, Math.min(1, relY / renderH)),
-    }
-  }, [fitMode])
-
-  // ─── Touch Gesture Handlers for Operating PC Screen ───────────────────────
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    // 1. Pan / Scroll Mode or 2-finger pan
-    if (interactionMode === 'pan' || e.touches.length === 2) {
-      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
-      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: performance.now() }
-      initialPanOffsetRef.current = { ...panOffset }
-      return
-    }
-
-    // 2. Control Mode: 1 finger
-    if (e.touches.length === 1) {
-      const touch = e.touches[0]
-      const coords = getNormalizedTouchCoordinates(touch)
-      if (!coords) return
-
-      touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: performance.now() }
-      isDraggingRef.current = false
-
-      // Send initial mouse move
-      defaultPeerService.sendInputEvent({
-        type: 'mouse:move',
-        x: coords.normX,
-        y: coords.normY,
-      })
-
-      // Setup long-press for Right Click (550ms)
-      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
-      longPressTimerRef.current = setTimeout(() => {
-        if (!isDraggingRef.current) {
-          defaultPeerService.sendInputEvent({
-            type: 'mouse:down',
-            button: 'right',
-            x: coords.normX,
-            y: coords.normY,
-          })
-          defaultPeerService.sendInputEvent({
-            type: 'mouse:up',
-            button: 'right',
-            x: coords.normX,
-            y: coords.normY,
-          })
-          defaultPeerService.sendInputEvent({
-            type: 'mouse:click',
-            button: 'right',
-            x: coords.normX,
-            y: coords.normY,
-          })
-          showToastMsg('🖱️ Right Click Triggered')
-          if (navigator.vibrate) navigator.vibrate(40)
-        }
-      }, 550)
-    }
-  }
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    // 1. Pan / Drag Screen mode or 2-finger scroll
-    if (interactionMode === 'pan' || e.touches.length === 2) {
-      if (touchStartRef.current && e.touches[0]) {
-        const deltaX = e.touches[0].clientX - touchStartRef.current.x
-        const deltaY = e.touches[0].clientY - touchStartRef.current.y
-        setPanOffset({
-          x: initialPanOffsetRef.current.x + deltaX,
-          y: initialPanOffsetRef.current.y + deltaY,
+      if (navigator.mediaDevices?.getDisplayMedia) {
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: { ideal: 60, max: 60 } } as any,
+          audio: true,
+        })
+      } else if (navigator.mediaDevices?.getUserMedia) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: true,
         })
       }
-      return
-    }
 
-    // 2. Control Mode: Mouse Move (Throttled to 33ms to completely eliminate stream lag)
-    if (e.touches.length === 1) {
-      const touch = e.touches[0]
-      const coords = getNormalizedTouchCoordinates(touch)
-      if (!coords) return
-
-      if (touchStartRef.current) {
-        const dist = Math.hypot(touch.clientX - touchStartRef.current.x, touch.clientY - touchStartRef.current.y)
-        if (dist > 8) {
-          isDraggingRef.current = true
-          if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
-        }
-      }
-
-      const now = performance.now()
-      pendingMoveRef.current = coords
-      if (now - lastMoveSentTimeRef.current >= 33) {
-        lastMoveSentTimeRef.current = now
-        defaultPeerService.sendInputEvent({
-          type: 'mouse:move',
-          x: coords.normX,
-          y: coords.normY,
-        })
-      } else if (!moveAnimFrameRef.current) {
-        moveAnimFrameRef.current = requestAnimationFrame(() => {
-          moveAnimFrameRef.current = null
-          const curr = performance.now()
-          if (pendingMoveRef.current && curr - lastMoveSentTimeRef.current >= 30) {
-            lastMoveSentTimeRef.current = curr
-            defaultPeerService.sendInputEvent({
-              type: 'mouse:move',
-              x: pendingMoveRef.current.normX,
-              y: pendingMoveRef.current.normY,
-            })
-          }
-        })
-      }
-    }
-  }
-
-  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current)
-      longPressTimerRef.current = null
-    }
-    lastTwoTouchYRef.current = null
-
-    if (interactionMode === 'pan') {
-      touchStartRef.current = null
-      return
-    }
-
-    if (e.changedTouches.length === 1 && touchStartRef.current && !isDraggingRef.current) {
-      const touch = e.changedTouches[0]
-      const coords = getNormalizedTouchCoordinates(touch)
-      if (!coords) {
-        touchStartRef.current = null
+      if (!stream) {
+        showToastMsg('⚠️ Screen capture cancelled.')
         return
       }
 
-      const now = performance.now()
-      const timeSinceLastTap = now - lastTapTimeRef.current
-      lastTapTimeRef.current = now
+      localStreamRef.current = stream
+      setIsSharingMyScreen(true)
+      setStatusText(`🟢 Live Phone Screen Share Active! Share ID ${myMobilePin} with partner.`)
+      showToastMsg(`🟢 Phone Screen Share Active! Share ID: ${myMobilePin}`)
 
-      if (timeSinceLastTap < 300) {
-        // Double Click (Opens Desktop Apps & Folders)
-        defaultPeerService.sendInputEvent({
-          type: 'mouse:dblclick',
-          x: coords.normX,
-          y: coords.normY,
-        })
-        showToastMsg('⚡ Double Click (Open App)')
-      } else {
-        // Single Click
-        defaultPeerService.sendInputEvent({
-          type: 'mouse:down',
-          button: 'left',
-          x: coords.normX,
-          y: coords.normY,
-        })
-        defaultPeerService.sendInputEvent({
-          type: 'mouse:up',
-          button: 'left',
-          x: coords.normX,
-          y: coords.normY,
-        })
-        defaultPeerService.sendInputEvent({
-          type: 'mouse:click',
-          button: 'left',
-          x: coords.normX,
-          y: coords.normY,
-        })
+      stream.getVideoTracks()[0].onended = () => {
+        handleStopMyMobileShare()
+      }
+
+      await defaultPeerService.initHost(myMobilePin, stream, myMobilePasscode)
+    } catch (err: any) {
+      if (err.name !== 'NotAllowedError') {
+        showToastMsg('⚠️ ' + (err.message || 'Permission denied'))
       }
     }
-    touchStartRef.current = null
   }
 
-  // ─── Remote App Launch & Web Navigation ────────────────────────────────────
-  const handleLaunchApp = (app: string) => {
-    defaultPeerService.launchApp(app)
-    showToastMsg(`🚀 Opening ${app.toUpperCase()} on PC...`)
-  }
-
-  const handleOpenUrl = (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
-    if (!urlInput.trim()) return
-    defaultPeerService.openUrl(urlInput.trim())
-    showToastMsg(`🌐 Opening ${urlInput.trim()} on PC...`)
-    setShowUrlPrompt(false)
-    setUrlInput('')
-  }
-
-  const handleSendCustomText = (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
-    if (!customTextInput.trim()) return
-    defaultPeerService.sendInputEvent({
-      type: 'key:text',
-      text: customTextInput,
-    })
-    showToastMsg('⌨️ Text typed on PC!')
-    setShowTextPrompt(false)
-    setCustomTextInput('')
-  }
-
-  // ─── Send Windows Shortcut ────────────────────────────────────────────────
-  const handleSendShortcut = (name: string) => {
-    defaultPeerService.sendInputEvent({
-      type: 'shortcut',
-      name,
-    })
-    if (navigator.vibrate) navigator.vibrate(30)
-  }
-
-  // ─── Virtual Keyboard Typing ──────────────────────────────────────────────
-  const handleVirtualKeyInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    if (!val) return
-
-    const newChar = val.slice(-1)
-    defaultPeerService.sendInputEvent({
-      type: 'key:text',
-      text: newChar,
-    })
-
-    setVirtualText('')
-  }
-
-  const handleVirtualKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace') {
-      defaultPeerService.sendInputEvent({
-        type: 'key:down',
-        code: 'Backspace',
-        key: 'Backspace',
-      })
-      defaultPeerService.sendInputEvent({
-        type: 'key:up',
-        code: 'Backspace',
-        key: 'Backspace',
-      })
-    } else if (e.key === 'Enter') {
-      defaultPeerService.sendInputEvent({
-        type: 'key:down',
-        code: 'Enter',
-        key: 'Enter',
-      })
-      defaultPeerService.sendInputEvent({
-        type: 'key:up',
-        code: 'Enter',
-        key: 'Enter',
-      })
+  const handleStopMyMobileShare = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((t) => t.stop())
+      localStreamRef.current = null
     }
-  }
-
-  const handleDisconnect = () => {
     defaultPeerService.destroyPeer()
-    setConnected(false)
-    setRemoteStream(null)
-    setStatusText('Disconnected from PC.')
+    setIsSharingMyScreen(false)
+    setStatusText('Screen sharing stopped.')
+    showToastMsg('🛑 Screen sharing stopped')
   }
 
-  // ─── Cast Phone to PC (Mode 2) ────────────────────────────────────────────
+  const handleRegenerateMyMobilePin = () => {
+    const gen = String(Math.floor(100000 + Math.random() * 900000))
+    const genPass = String(Math.floor(1000 + Math.random() * 9000))
+    setMyMobilePin(gen)
+    setMyMobilePasscode(genPass)
+    sessionStorage.setItem('lbm_my_mobile_id', gen)
+    sessionStorage.setItem('lbm_my_mobile_pass', genPass)
+    showToastMsg('🔄 नया Phone ID और Password जनरेट हुआ: ' + gen)
+  }
+
+  const handleCopyMyMobilePin = () => {
+    const text = `LBM Mirror Phone ID: ${myMobilePin}\nPassword: ${myMobilePasscode}\nDirect Link: https://l-b-m-mirror.vercel.app/?join=${myMobilePin}&mode=controller`
+    navigator.clipboard.writeText(text)
+    setCopiedPin(true)
+    showToastMsg('📋 Phone ID और Password कॉपी हो गया!')
+    setTimeout(() => setCopiedPin(false), 2000)
+  }
+
+  // ─── 3. Legacy Phone Screen Cast to PC ─────────────────────────────────────
   const handleStartPhoneCast = async () => {
     const cleanPin = pin.trim()
     if (!cleanPin || cleanPin.length < 5) {
@@ -536,6 +353,252 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
     setStatusText('Screen cast stopped.')
   }
 
+  // ─── Touch to Normalized Coordinates Calculator (Zero Offset) ─────────────
+  const getNormalizedTouchCoordinates = useCallback((touch: React.Touch) => {
+    const video = remoteVideoRef.current
+    if (!video) return null
+
+    const rect = video.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return null
+
+    const clientX = touch.clientX
+    const clientY = touch.clientY
+
+    const relX = clientX - rect.left
+    const relY = clientY - rect.top
+
+    if (relX < 0 || relX > rect.width || relY < 0 || relY > rect.height) {
+      return null
+    }
+
+    return {
+      normX: Math.max(0, Math.min(1, relX / rect.width)),
+      normY: Math.max(0, Math.min(1, relY / rect.height)),
+    }
+  }, [])
+
+  // ─── Touch Gestures (Throttled for Zero Stuttering) ─────────────────────────
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (interactionMode === 'pan' || e.touches.length === 2) {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: performance.now() }
+      initialPanOffsetRef.current = { ...panOffset }
+      return
+    }
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0]
+      const coords = getNormalizedTouchCoordinates(touch)
+      if (!coords) return
+
+      touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: performance.now() }
+      isDraggingRef.current = false
+
+      defaultPeerService.sendInputEvent({
+        type: 'mouse:move',
+        x: coords.normX,
+        y: coords.normY,
+      })
+
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = setTimeout(() => {
+        if (!isDraggingRef.current) {
+          defaultPeerService.sendInputEvent({
+            type: 'mouse:down',
+            button: 'right',
+            x: coords.normX,
+            y: coords.normY,
+          })
+          defaultPeerService.sendInputEvent({
+            type: 'mouse:up',
+            button: 'right',
+            x: coords.normX,
+            y: coords.normY,
+          })
+          defaultPeerService.sendInputEvent({
+            type: 'mouse:click',
+            button: 'right',
+            x: coords.normX,
+            y: coords.normY,
+          })
+          showToastMsg('🖱️ Right Click')
+          if (navigator.vibrate) navigator.vibrate(35)
+        }
+      }, 550)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (interactionMode === 'pan' || e.touches.length === 2) {
+      if (touchStartRef.current && e.touches[0]) {
+        const deltaX = e.touches[0].clientX - touchStartRef.current.x
+        const deltaY = e.touches[0].clientY - touchStartRef.current.y
+        setPanOffset({
+          x: initialPanOffsetRef.current.x + deltaX,
+          y: initialPanOffsetRef.current.y + deltaY,
+        })
+      }
+      return
+    }
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0]
+      const coords = getNormalizedTouchCoordinates(touch)
+      if (!coords) return
+
+      if (touchStartRef.current) {
+        const dist = Math.hypot(touch.clientX - touchStartRef.current.x, touch.clientY - touchStartRef.current.y)
+        if (dist > 8) {
+          isDraggingRef.current = true
+          if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+        }
+      }
+
+      const now = performance.now()
+      pendingMoveRef.current = coords
+      if (now - lastMoveSentTimeRef.current >= 30) {
+        lastMoveSentTimeRef.current = now
+        defaultPeerService.sendInputEvent({
+          type: 'mouse:move',
+          x: coords.normX,
+          y: coords.normY,
+        })
+      } else if (!moveAnimFrameRef.current) {
+        moveAnimFrameRef.current = requestAnimationFrame(() => {
+          moveAnimFrameRef.current = null
+          const curr = performance.now()
+          if (pendingMoveRef.current && curr - lastMoveSentTimeRef.current >= 28) {
+            lastMoveSentTimeRef.current = curr
+            defaultPeerService.sendInputEvent({
+              type: 'mouse:move',
+              x: pendingMoveRef.current.normX,
+              y: pendingMoveRef.current.normY,
+            })
+          }
+        })
+      }
+    }
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    lastTwoTouchYRef.current = null
+
+    if (interactionMode === 'pan') {
+      touchStartRef.current = null
+      return
+    }
+
+    if (e.changedTouches.length === 1 && touchStartRef.current && !isDraggingRef.current) {
+      const touch = e.changedTouches[0]
+      const coords = getNormalizedTouchCoordinates(touch)
+      if (!coords) {
+        touchStartRef.current = null
+        return
+      }
+
+      const now = performance.now()
+      const timeSinceLastTap = now - lastTapTimeRef.current
+      lastTapTimeRef.current = now
+
+      if (timeSinceLastTap < 300) {
+        defaultPeerService.sendInputEvent({
+          type: 'mouse:dblclick',
+          x: coords.normX,
+          y: coords.normY,
+        })
+        showToastMsg('⚡ Double Click')
+        if (navigator.vibrate) navigator.vibrate(25)
+      } else {
+        defaultPeerService.sendInputEvent({
+          type: 'mouse:down',
+          button: 'left',
+          x: coords.normX,
+          y: coords.normY,
+        })
+        defaultPeerService.sendInputEvent({
+          type: 'mouse:up',
+          button: 'left',
+          x: coords.normX,
+          y: coords.normY,
+        })
+        defaultPeerService.sendInputEvent({
+          type: 'mouse:click',
+          button: 'left',
+          x: coords.normX,
+          y: coords.normY,
+        })
+      }
+    }
+    touchStartRef.current = null
+  }
+
+  // ─── Remote Desktop Shortcuts & App Actions ───────────────────────────────
+  const handleLaunchApp = (app: string) => {
+    defaultPeerService.launchApp(app)
+    showToastMsg(`🚀 Opening ${app.toUpperCase()}...`)
+  }
+
+  const handleOpenUrl = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!urlInput.trim()) return
+    defaultPeerService.openUrl(urlInput.trim())
+    showToastMsg(`🌐 Opening ${urlInput.trim()}...`)
+    setShowUrlPrompt(false)
+    setUrlInput('')
+  }
+
+  const handleSendCustomText = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!customTextInput.trim()) return
+    defaultPeerService.sendInputEvent({
+      type: 'key:text',
+      text: customTextInput,
+    })
+    showToastMsg('⌨️ Text typed!')
+    setShowTextPrompt(false)
+    setCustomTextInput('')
+  }
+
+  const handleSendShortcut = (name: string) => {
+    defaultPeerService.sendInputEvent({
+      type: 'shortcut',
+      name,
+    })
+    if (navigator.vibrate) navigator.vibrate(25)
+  }
+
+  const handleVirtualKeyInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    if (!val) return
+    const newChar = val.slice(-1)
+    defaultPeerService.sendInputEvent({
+      type: 'key:text',
+      text: newChar,
+    })
+    setVirtualText('')
+  }
+
+  const handleVirtualKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      defaultPeerService.sendInputEvent({ type: 'key:down', code: 'Backspace', key: 'Backspace' })
+      defaultPeerService.sendInputEvent({ type: 'key:up', code: 'Backspace', key: 'Backspace' })
+    } else if (e.key === 'Enter') {
+      defaultPeerService.sendInputEvent({ type: 'key:down', code: 'Enter', key: 'Enter' })
+      defaultPeerService.sendInputEvent({ type: 'key:up', code: 'Enter', key: 'Enter' })
+    }
+  }
+
+  const handleDisconnect = () => {
+    defaultPeerService.destroyPeer()
+    setConnected(false)
+    setRemoteStream(null)
+    setStatusText('Disconnected.')
+  }
+
   return (
     <div className="mobile-sender-shell">
       {/* Hidden input for triggering mobile native keyboard */}
@@ -552,24 +615,19 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
       <header className="mobile-header-bar">
         <div className="mobile-brand-group">
           <img src={settings.appLogo || logoImg} alt="LBM Logo" className="mobile-logo-thumb" />
-          <div>
+          <div className="mobile-brand-info">
             <h1 className="mobile-app-title">{settings.appName}</h1>
             <span className="mobile-tagline">
-              {mobileMode === 'controller' ? '📱 ➔ 💻 PC Remote Desktop' : '📱 ➔ 💻 Phone Screen Cast'}
+              {mobileMode === 'controller'
+                ? '🎮 Partner Remote Control'
+                : mobileMode === 'host'
+                ? '📱 Share This Phone Screen'
+                : '📺 Cast Phone to PC'}
             </span>
           </div>
         </div>
 
         <div className="mobile-header-actions">
-          {/* Mode Switcher */}
-          <button
-            type="button"
-            className="mobile-mode-pill-btn"
-            onClick={() => setMobileMode(mobileMode === 'controller' ? 'sender' : 'controller')}
-          >
-            {mobileMode === 'controller' ? '🔁 Cast Mode' : '🎮 Controller'}
-          </button>
-
           <button
             type="button"
             className="desktop-switch-btn"
@@ -584,84 +642,203 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
       {/* Main Container */}
       <main className="mobile-main-stage">
         {!connected ? (
-          /* Connect Form Card */
           <div className="mobile-connect-card">
-            <div className="mobile-icon-circle">
-              {mobileMode === 'controller' ? '🎮 ➔ 💻' : '📱 ➔ 💻'}
+            {/* 3 Tab Mode Switcher on Mobile */}
+            <div className="mobile-tabs-pill-row">
+              <button
+                type="button"
+                className={`mobile-tab-pill ${mobileMode === 'controller' ? 'active' : ''}`}
+                onClick={() => setMobileMode('controller')}
+              >
+                🎮 Remote Control
+              </button>
+              <button
+                type="button"
+                className={`mobile-tab-pill ${mobileMode === 'host' ? 'active' : ''}`}
+                onClick={() => setMobileMode('host')}
+              >
+                📱 Share Phone
+              </button>
+              <button
+                type="button"
+                className={`mobile-tab-pill ${mobileMode === 'sender' ? 'active' : ''}`}
+                onClick={() => setMobileMode('sender')}
+              >
+                📺 Cast to PC
+              </button>
             </div>
-            <h2 className="mobile-card-title">
-              {mobileMode === 'controller' ? 'Control Your PC from Anywhere' : 'Cast Phone to PC'}
-            </h2>
-            <p className="mobile-card-desc">
-              {mobileMode === 'controller'
-                ? 'अपने कंप्यूटर पर दिख रही Remote ID और Password यहाँ दर्ज करें। आपका पूरा कंप्यूटर यहाँ से चलेगा!'
-                : 'Enter the 6-digit PIN displayed on your PC screen to start mirroring.'}
-            </p>
 
-            <form onSubmit={handleConnectToPc} className="mobile-form-wrap">
-              <div className="mobile-input-row">
-                <label>PC Remote ID:</label>
-                <input
-                  type="number"
-                  pattern="[0-9]*"
-                  placeholder="e.g. 806293"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.slice(0, 8))}
-                  className="mobile-pin-field"
-                  disabled={connecting}
-                />
+            {/* ══════════ TAB 1: REMOTE CONTROL (Mobile-to-Mobile & Mobile-to-PC) ══════════ */}
+            {mobileMode === 'controller' && (
+              <div className="mobile-tab-pane-content">
+                <div className="mobile-icon-circle">🎮 ➔ 📱/💻</div>
+                <h2 className="mobile-card-title">Control Partner Phone or PC</h2>
+                <p className="mobile-card-desc">
+                  सामने वाले फोन या कंप्यूटर की <strong>Remote ID</strong> और <strong>Password</strong> दर्ज करें। आप उनका पूरा फोन या PC यहाँ से चला सकेंगे!
+                </p>
+
+                <form onSubmit={handleConnectToPartner} className="mobile-form-wrap">
+                  <div className="mobile-input-row">
+                    <label>Partner Remote ID (फोन या PC की ID):</label>
+                    <input
+                      type="number"
+                      pattern="[0-9]*"
+                      placeholder="e.g. 806293"
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value.slice(0, 8))}
+                      className="mobile-pin-field"
+                      disabled={connecting}
+                    />
+                  </div>
+
+                  <div className="mobile-input-row">
+                    <label>Access Password (पासवर्ड):</label>
+                    <input
+                      type="password"
+                      placeholder="e.g. 1229"
+                      value={passcode}
+                      onChange={(e) => setPasscode(e.target.value)}
+                      className="mobile-pin-field"
+                      disabled={connecting}
+                    />
+                  </div>
+
+                  {connectError && (
+                    <div className="mobile-error-banner">⚠️ {connectError}</div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="mobile-connect-btn"
+                    disabled={connecting || pin.trim().length < 5}
+                  >
+                    {connecting ? 'Connecting to Partner…' : '⚡ Connect & Remote Control (60 FPS)'}
+                  </button>
+                </form>
               </div>
+            )}
 
-              {mobileMode === 'controller' && (
+            {/* ══════════ TAB 2: SHARE THIS PHONE SCREEN (Host Mode) ══════════ */}
+            {mobileMode === 'host' && (
+              <div className="mobile-tab-pane-content">
+                <div className="mobile-icon-circle">📱 ➔ 🌐</div>
+                <h2 className="mobile-card-title">Share My Phone Screen</h2>
+                <p className="mobile-card-desc">
+                  यह आपके फोन की ID और पासवर्ड है। दूसरा मोबाइल या PC यह ID डालकर आपका फोन देख और चला सकता है:
+                </p>
+
+                <div className="mobile-my-credentials-box">
+                  <div className="cred-tile">
+                    <span className="cred-label">My Phone Remote ID:</span>
+                    <strong className="cred-value">{myMobilePin}</strong>
+                  </div>
+                  <div className="cred-tile">
+                    <span className="cred-label">Access Password:</span>
+                    <strong className="cred-value">{myMobilePasscode}</strong>
+                  </div>
+
+                  <div className="cred-actions-row">
+                    <button
+                      type="button"
+                      className="cred-action-btn"
+                      onClick={handleCopyMyMobilePin}
+                    >
+                      {copiedPin ? '✓ Copied!' : '📋 Copy ID & Link'}
+                    </button>
+                    <button
+                      type="button"
+                      className="cred-action-btn secondary"
+                      onClick={handleRegenerateMyMobilePin}
+                      disabled={isSharingMyScreen}
+                    >
+                      🔄 New ID
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mobile-host-action-box">
+                  {!isSharingMyScreen ? (
+                    <button
+                      type="button"
+                      className="mobile-connect-btn host-start-btn"
+                      onClick={handleStartMyMobileShare}
+                    >
+                      🚀 Start Sharing My Phone Screen (60 FPS)
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="mobile-connect-btn host-stop-btn"
+                      onClick={handleStopMyMobileShare}
+                    >
+                      ⏹ Stop Sharing Phone Screen
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ══════════ TAB 3: CAST PHONE TO PC ══════════ */}
+            {mobileMode === 'sender' && (
+              <div className="mobile-tab-pane-content">
+                <div className="mobile-icon-circle">📱 ➔ 📺</div>
+                <h2 className="mobile-card-title">Cast Phone to PC Screen</h2>
+                <p className="mobile-card-desc">
+                  कंप्यूटर स्क्रीन पर दिख रहा 6-डिजिट PIN दर्ज करके अपने फोन की स्क्रीन सीधे कंप्यूटर पर गेमिंग व प्रेजेंटेशन के लिए दिखाएं:
+                </p>
+
                 <div className="mobile-input-row">
-                  <label>Access Password:</label>
+                  <label>PC Remote PIN:</label>
                   <input
-                    type="password"
-                    placeholder="e.g. 4821"
-                    value={passcode}
-                    onChange={(e) => setPasscode(e.target.value)}
+                    type="number"
+                    pattern="[0-9]*"
+                    placeholder="e.g. 839201"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.slice(0, 8))}
                     className="mobile-pin-field"
-                    disabled={connecting}
                   />
                 </div>
-              )}
 
-              {connectError && (
-                <div className="mobile-error-banner">
-                  ⚠️ {connectError}
+                <div className="mobile-host-action-box">
+                  {!isCasting ? (
+                    <button
+                      type="button"
+                      className="mobile-connect-btn"
+                      onClick={handleStartPhoneCast}
+                      disabled={pin.trim().length < 5}
+                    >
+                      📺 Start 60 FPS Mirror to PC
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="mobile-connect-btn host-stop-btn"
+                      onClick={handleStopPhoneCast}
+                    >
+                      ⏹ Stop Screen Cast
+                    </button>
+                  )}
                 </div>
-              )}
-
-              <button
-                type="submit"
-                className="mobile-connect-btn"
-                disabled={connecting || pin.trim().length < 5}
-              >
-                {connecting
-                  ? 'Connecting to PC…'
-                  : mobileMode === 'controller'
-                  ? '⚡ Connect & Control Laptop'
-                  : 'Connect to PC'}
-              </button>
-            </form>
+              </div>
+            )}
 
             <div className="mobile-status-pill">{statusText}</div>
 
-            {/* Direct Mobile App Downloads & Phone Home Screen Install */}
+            {/* Official Downloads Suite */}
             <div className="mobile-app-download-suite">
-              <div className="suite-title">📥 डाउनलोड ऐप्स (Official Downloads):</div>
+              <div className="suite-title">📥 डाउनलोड आधिकारिक ऐप्स (Official Downloads):</div>
               <div className="suite-btn-grid">
-                <a
-                  href="/downloads/LBMMirror.apk"
-                  download="LBMMirror.apk"
+                <button
+                  type="button"
+                  onClick={() => triggerDirectApkDownload('LBMMirror.apk')}
                   className="suite-dl-btn apk-btn"
                 >
                   <span className="btn-icon">🤖</span>
                   <div className="btn-text-block">
                     <strong>डाउनलोड फॉर एंड्रॉइड APK</strong>
-                    <small>Direct LBMMirror.apk (Fast)</small>
+                    <small>Official LBMMirror.apk (Fast)</small>
                   </div>
-                </a>
+                </button>
 
                 <button
                   type="button"
@@ -670,24 +847,26 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                 >
                   <span className="btn-icon">📱</span>
                   <div className="btn-text-block">
-                    <strong>फोन स्क्रीन / गैलरी में लगाएं</strong>
-                    <small>1-Tap Home Screen App</small>
+                    <strong>फोन स्क्रीन में लगाएं (1-Tap)</strong>
+                    <small>Instant Home Screen App</small>
                   </div>
                 </button>
               </div>
 
               <div className="suite-extra-row">
-                <a
-                  href="/api/download/windows"
-                  download="LBM_Mirror_Setup.exe"
-                  className="suite-mini-link"
+                <button
+                  type="button"
+                  onClick={() => triggerDirectExeDownload('LBM_Mirror_Setup.exe')}
+                  className="suite-mini-btn"
                 >
-                  💻 डाउनलोड फॉर विंडोज (.EXE)
-                </a>
+                  💻 डाउनलोड फॉर विंडोज (LBM_Mirror_Setup.exe)
+                </button>
                 <span className="suite-sep">•</span>
                 <span
                   className="suite-mini-link"
-                  onClick={() => alert('🍎 iOS (iPhone/iPad): Safari में नीचे Share बटन दबाकर "Add to Home Screen" चुनें।')}
+                  onClick={() =>
+                    alert('🍎 iOS (iPhone/iPad): Safari में नीचे Share बटन दबाकर "Add to Home Screen" चुनें।')
+                  }
                 >
                   🍎 डाउनलोड फॉर iOS
                 </span>
@@ -695,14 +874,18 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
             </div>
           </div>
         ) : (
-          /* Live Remote Interactive Workspace (100dvh Edge-to-Edge) */
-          <div className="mobile-active-workspace">
-            {/* Top Toolbar over video */}
+          /* ═══════════════ LIVE REMOTE STREAM VIEW (Edge-to-Edge, Zero Cutoff) ═══════════════ */
+          <div className={`mobile-active-workspace ${isVideoPortrait ? 'stream-portrait' : 'stream-landscape'}`}>
+            {/* Top Toolbar */}
             <div className="mobile-controller-topbar">
               <div className="mobile-topbar-left">
-                <span className="mobile-live-badge">🟢 LIVE</span>
+                <span className="mobile-live-badge">🟢 LIVE 60 FPS</span>
+                {isVideoPortrait ? (
+                  <span className="stream-type-pill">📱 Mobile</span>
+                ) : (
+                  <span className="stream-type-pill">💻 PC</span>
+                )}
 
-                {/* Display Fit Mode Selector */}
                 <button
                   type="button"
                   className={`mobile-bar-btn ${fitMode === 'fit' ? 'active' : ''}`}
@@ -710,9 +893,9 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                     setFitMode('fit')
                     setPanOffset({ x: 0, y: 0 })
                     setInteractionMode('control')
-                    showToastMsg('📐 Fit Mode: Full PC Screen Visible (बिना कटे)')
+                    showToastMsg('📐 Fit Mode: पूरा स्क्रीन बिना कटे')
                   }}
-                  title="Fit Screen (पूरा देखें)"
+                  title="Fit Screen"
                 >
                   📐 Fit
                 </button>
@@ -723,24 +906,11 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                   onClick={() => {
                     setFitMode('pan')
                     setInteractionMode('pan')
-                    showToastMsg('🔍 Zoom & Pan Mode: Drag finger to scroll across desktop')
+                    showToastMsg('🔍 Zoom & Pan: स्क्रीन पर सरकाएं')
                   }}
-                  title="Zoom & Pan (ज़ूम और सरकाएं)"
+                  title="Zoom & Pan"
                 >
                   🔍 Zoom
-                </button>
-
-                <button
-                  type="button"
-                  className={`mobile-bar-btn ${interactionMode === 'pan' ? 'active-amber' : ''}`}
-                  onClick={() => {
-                    const nextMode = interactionMode === 'pan' ? 'control' : 'pan'
-                    setInteractionMode(nextMode)
-                    showToastMsg(nextMode === 'pan' ? '✋ Pan Mode: Drag finger to slide screen' : '🖱️ Touch Mode: Tap to click')
-                  }}
-                  title="Toggle Pan / Touch Mode"
-                >
-                  {interactionMode === 'pan' ? '✋ Pan' : '🖱️ Touch'}
                 </button>
               </div>
 
@@ -750,9 +920,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                   className={`mobile-bar-btn ${isKeyboardOpen ? 'active' : ''}`}
                   onClick={() => {
                     setIsKeyboardOpen(!isKeyboardOpen)
-                    if (hiddenInputRef.current) {
-                      hiddenInputRef.current.focus()
-                    }
+                    if (hiddenInputRef.current) hiddenInputRef.current.focus()
                   }}
                   title="Toggle Keyboard"
                 >
@@ -763,7 +931,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                   type="button"
                   className="mobile-bar-btn"
                   onClick={toggleFullscreen}
-                  title="Fullscreen (फुलस्क्रीन)"
+                  title="Fullscreen"
                 >
                   {isFullscreen ? '⤦' : '⛶'}
                 </button>
@@ -779,7 +947,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
               </div>
             </div>
 
-            {/* Interactive PC Screen Surface */}
+            {/* Interactive Screen Surface */}
             <div
               className={`mobile-interactive-surface mode-${fitMode}`}
               onTouchStart={handleTouchStart}
@@ -790,13 +958,8 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                 <div
                   className="mobile-video-pan-wrapper"
                   style={{
-                    transform: fitMode === 'pan' ? `scale(1.55) translate(${panOffset.x}px, ${panOffset.y}px)` : undefined,
+                    transform: fitMode === 'pan' ? `scale(1.45) translate(${panOffset.x}px, ${panOffset.y}px)` : undefined,
                     transition: isDraggingRef.current ? 'none' : 'transform 0.1s ease-out',
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
                   }}
                 >
                   <video
@@ -804,17 +967,20 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                     autoPlay
                     playsInline
                     muted
-                    className={`mobile-screen-video fit-${fitMode}`}
+                    onLoadedMetadata={handleLoadedMetadata}
+                    className={`mobile-screen-video fit-${fitMode} ${
+                      isVideoPortrait ? 'is-portrait-stream' : 'is-landscape-stream'
+                    }`}
                   />
                 </div>
               ) : (
                 <div className="mobile-waiting-placeholder">
                   <div className="spinner-mini" />
-                  <p>Streaming PC Desktop at 60 FPS...</p>
+                  <p>Receiving 60 FPS live video...</p>
                 </div>
               )}
 
-              {/* Reset View Pill (Visible when panned or zoomed) */}
+              {/* Reset View Pill */}
               {(fitMode === 'pan' || panOffset.x !== 0 || panOffset.y !== 0) && (
                 <button
                   type="button"
@@ -822,21 +988,13 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                   onClick={resetView}
                   title="Reset screen position"
                 >
-                  ↺ Reset Screen
+                  ↺ Reset View
                 </button>
               )}
             </div>
 
-            {/* Quick Virtual Mouse Bar for Precision Taps */}
-            <div className="mobile-mouse-actions-bar" style={{
-              display: 'flex',
-              gap: '6px',
-              padding: '6px 10px',
-              background: 'rgba(15, 23, 42, 0.85)',
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-              overflowX: 'auto',
-              justifyContent: 'center'
-            }}>
+            {/* Quick Virtual Mouse Bar */}
+            <div className="mobile-mouse-actions-bar">
               <button
                 type="button"
                 className="mobile-dock-pill"
@@ -845,7 +1003,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                   showToastMsg('🖱️ Left Click')
                 }}
               >
-                🖱️ Left Click
+                🖱️ Left
               </button>
               <button
                 type="button"
@@ -855,7 +1013,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                   showToastMsg('🖱️ Right Click')
                 }}
               >
-                🖱️ Right Click
+                🖱️ Right
               </button>
               <button
                 type="button"
@@ -865,7 +1023,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                   showToastMsg('👆 Double Click')
                 }}
               >
-                👆 Double Click
+                👆 2x Click
               </button>
               <button
                 type="button"
@@ -875,7 +1033,7 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                   showToastMsg('⬆️ Scroll Up')
                 }}
               >
-                ⬆️ Scroll Up
+                ⬆️ Up
               </button>
               <button
                 type="button"
@@ -885,32 +1043,29 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
                   showToastMsg('⬇️ Scroll Down')
                 }}
               >
-                ⬇️ Scroll Down
+                ⬇️ Down
               </button>
             </div>
 
-            {/* Quick Windows Shortcut & App Launcher Bar for Phones */}
+            {/* Quick Shortcuts & Launcher Dock */}
             <div className="mobile-shortcuts-dock">
               <button
                 type="button"
-                className="mobile-dock-pill"
-                style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: '#fff', fontWeight: 'bold' }}
+                className="mobile-dock-pill primary-pill"
                 onClick={() => handleLaunchApp('chrome')}
               >
                 🌐 Chrome
               </button>
               <button
                 type="button"
-                className="mobile-dock-pill"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', fontWeight: 'bold' }}
+                className="mobile-dock-pill purple-pill"
                 onClick={() => setShowUrlPrompt(true)}
               >
                 🌍 Open URL
               </button>
               <button
                 type="button"
-                className="mobile-dock-pill"
-                style={{ background: 'rgba(56, 189, 248, 0.2)', border: '1px solid #38bdf8', color: '#38bdf8' }}
+                className="mobile-dock-pill cyan-pill"
                 onClick={() => setShowTextPrompt(true)}
               >
                 ⌨️ Type Text
@@ -932,20 +1087,6 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
               <button
                 type="button"
                 className="mobile-dock-pill"
-                onClick={() => handleSendShortcut('EXPLORER')}
-              >
-                📁 Explorer
-              </button>
-              <button
-                type="button"
-                className="mobile-dock-pill"
-                onClick={() => handleSendShortcut('WIN_R')}
-              >
-                🚀 Run
-              </button>
-              <button
-                type="button"
-                className="mobile-dock-pill"
                 onClick={() => handleSendShortcut('WIN_D')}
               >
                 🖥️ Desktop
@@ -959,145 +1100,95 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
               </button>
             </div>
 
-            {/* Floating Mobile Toast Banner */}
-            {mobileToast && (
-              <div style={{
-                position: 'fixed',
-                top: '70px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(15, 23, 42, 0.95)',
-                border: '1px solid #38bdf8',
-                color: '#fff',
-                padding: '8px 18px',
-                borderRadius: '30px',
-                fontSize: '13px',
-                fontWeight: 600,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                zIndex: 99999,
-                pointerEvents: 'none'
-              }}>
-                {mobileToast}
-              </div>
-            )}
-
-            {/* Mobile Open URL Prompt Modal */}
-            {showUrlPrompt && (
-              <div className="auth-modal-overlay" style={{ zIndex: 99999 }} onClick={() => setShowUrlPrompt(false)}>
-                <div className="admin-pin-dialog-card" style={{ maxWidth: '340px' }} onClick={(e) => e.stopPropagation()}>
-                  <button type="button" className="download-close-btn" onClick={() => setShowUrlPrompt(false)}>✕</button>
-                  <div className="pin-dialog-header">
-                    <span className="pin-shield-badge">🌐</span>
-                    <h3 className="pin-dialog-title">Open Website on PC</h3>
-                    <p className="pin-dialog-desc">
-                      कंप्यूटर पर जो वेबसाइट खोलनी है उसका नाम लिखें:
-                    </p>
-                  </div>
-                  <form onSubmit={handleOpenUrl} style={{ marginTop: '12px' }}>
-                    <input
-                      type="text"
-                      autoFocus
-                      placeholder="e.g. youtube.com, google.com"
-                      value={urlInput}
-                      onChange={(e) => setUrlInput(e.target.value)}
-                      className="admin-pin-input-field"
-                      style={{ fontSize: '14px', textAlign: 'left', padding: '10px 12px' }}
-                    />
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                      <button
-                        type="submit"
-                        className="primary-button"
-                        style={{ flex: 1, padding: '10px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
-                      >
-                        🚀 Open on PC
-                      </button>
-                      <button
-                        type="button"
-                        className="toolbar-pill"
-                        onClick={() => setShowUrlPrompt(false)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* Mobile Type Text Modal */}
-            {showTextPrompt && (
-              <div className="auth-modal-overlay" style={{ zIndex: 99999 }} onClick={() => setShowTextPrompt(false)}>
-                <div className="admin-pin-dialog-card" style={{ maxWidth: '340px' }} onClick={(e) => e.stopPropagation()}>
-                  <button type="button" className="download-close-btn" onClick={() => setShowTextPrompt(false)}>✕</button>
-                  <div className="pin-dialog-header">
-                    <span className="pin-shield-badge">⌨️</span>
-                    <h3 className="pin-dialog-title">Type into PC</h3>
-                    <p className="pin-dialog-desc">
-                      यहाँ लिखें, वो कंप्यूटर में टाइप हो जाएगा:
-                    </p>
-                  </div>
-                  <form onSubmit={handleSendCustomText} style={{ marginTop: '12px' }}>
-                    <input
-                      type="text"
-                      autoFocus
-                      placeholder="Type text or search query..."
-                      value={customTextInput}
-                      onChange={(e) => setCustomTextInput(e.target.value)}
-                      className="admin-pin-input-field"
-                      style={{ fontSize: '14px', textAlign: 'left', padding: '10px 12px' }}
-                    />
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                      <button
-                        type="submit"
-                        className="primary-button"
-                        style={{ flex: 1, padding: '10px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}
-                      >
-                        ⌨️ Send to PC
-                      </button>
-                      <button
-                        type="button"
-                        className="toolbar-pill"
-                        onClick={() => setShowTextPrompt(false)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
             {/* Touch gestures helper hint */}
             <div className="mobile-gesture-helper">
               <span>👆 Tap = Left Click</span>
               <span>•</span>
               <span>✌️ Long Press = Right Click</span>
               <span>•</span>
-              <span>✌️ Two-Finger = Scroll</span>
+              <span>👆 Double Tap = Open</span>
             </div>
+          </div>
+        )}
 
-            {/* If casting phone to PC fallback button */}
-            {mobileMode === 'sender' && (
-              <div className="mobile-cast-actions">
-                {!isCasting ? (
-                  <button
-                    type="button"
-                    className="mobile-cast-hero-btn"
-                    onClick={handleStartPhoneCast}
-                  >
-                    🚀 Cast This Phone's Screen to PC
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="mobile-stop-cast-btn"
-                    onClick={handleStopPhoneCast}
-                  >
-                    ⏹ Stop Screen Cast
-                  </button>
-                )}
+        {/* Floating Mobile Toast Banner */}
+        {mobileToast && (
+          <div className="mobile-toast-popup">
+            {mobileToast}
+          </div>
+        )}
+
+        {/* Open URL Modal */}
+        {showUrlPrompt && (
+          <div className="auth-modal-overlay" style={{ zIndex: 99999 }} onClick={() => setShowUrlPrompt(false)}>
+            <div className="admin-pin-dialog-card" style={{ maxWidth: '340px' }} onClick={(e) => e.stopPropagation()}>
+              <button type="button" className="download-close-btn" onClick={() => setShowUrlPrompt(false)}>✕</button>
+              <div className="pin-dialog-header">
+                <span className="pin-shield-badge">🌐</span>
+                <h3 className="pin-dialog-title">Open Website on Remote Partner</h3>
+                <p className="pin-dialog-desc">वेबसाइट का नाम लिखें:</p>
               </div>
-            )}
+              <form onSubmit={handleOpenUrl} style={{ marginTop: '12px' }}>
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="e.g. youtube.com, google.com"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  className="admin-pin-input-field"
+                  style={{ fontSize: '14px', textAlign: 'left', padding: '10px 12px' }}
+                />
+                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                  <button
+                    type="submit"
+                    className="primary-button"
+                    style={{ flex: 1, padding: '10px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+                  >
+                    🚀 Open
+                  </button>
+                  <button type="button" className="toolbar-pill" onClick={() => setShowUrlPrompt(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Type Text Modal */}
+        {showTextPrompt && (
+          <div className="auth-modal-overlay" style={{ zIndex: 99999 }} onClick={() => setShowTextPrompt(false)}>
+            <div className="admin-pin-dialog-card" style={{ maxWidth: '340px' }} onClick={(e) => e.stopPropagation()}>
+              <button type="button" className="download-close-btn" onClick={() => setShowTextPrompt(false)}>✕</button>
+              <div className="pin-dialog-header">
+                <span className="pin-shield-badge">⌨️</span>
+                <h3 className="pin-dialog-title">Type Text on Partner Screen</h3>
+                <p className="pin-dialog-desc">यहाँ लिखें, वो सामने टाइप हो जाएगा:</p>
+              </div>
+              <form onSubmit={handleSendCustomText} style={{ marginTop: '12px' }}>
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Type text or query..."
+                  value={customTextInput}
+                  onChange={(e) => setCustomTextInput(e.target.value)}
+                  className="admin-pin-input-field"
+                  style={{ fontSize: '14px', textAlign: 'left', padding: '10px 12px' }}
+                />
+                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                  <button
+                    type="submit"
+                    className="primary-button"
+                    style={{ flex: 1, padding: '10px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}
+                  >
+                    ⌨️ Send
+                  </button>
+                  <button type="button" className="toolbar-pill" onClick={() => setShowTextPrompt(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 
@@ -1111,4 +1202,3 @@ export const MobileSenderView: React.FC<MobileSenderViewProps> = ({
     </div>
   )
 }
-
